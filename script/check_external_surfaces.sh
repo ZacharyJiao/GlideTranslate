@@ -105,6 +105,22 @@ scan_case_sensitive_status_for() {
   case "$rg_status" in 0) return 0 ;; 1) return 1 ;; *) printf '%s\n' UNVERIFIABLE_SURFACE_SCAN >&2; exit 2 ;; esac
 }
 
+scan_absolute_path_status_for() {
+  local scan_path="$1"
+  local relative_path="$2"
+  local rg_status=0
+  if [[ ! "$relative_path" =~ ^run-[0-9]+[.]log$ ]]; then
+    scan_case_sensitive_status_for "$absolute_pattern" "$scan_path"
+    return $?
+  fi
+  local hosted_action_absolute_pattern
+  hosted_action_absolute_pattern="${users_prefix}(?!runner(?:/|[[:space:]]|$))[^/[:space:]]+|${home_prefix}[^/[:space:]]+|/private/(tmp|var)(/|[[:space:]])|/tmp(/|[[:space:]])|/Volumes(/|[[:space:]])"
+  LC_ALL=C rg -a -q -P -- \
+    "$hosted_action_absolute_pattern" \
+    "$scan_path" 2>> "$private_root/rg.private" || rg_status=$?
+  case "$rg_status" in 0) return 0 ;; 1) return 1 ;; *) printf '%s\n' UNVERIFIABLE_SURFACE_SCAN >&2; exit 2 ;; esac
+}
+
 scan_unmasked_credential_status_for() {
   local scan_path="$1"
   local rg_status=0
@@ -137,7 +153,7 @@ scan_email_status_for() {
 scan_categories() {
   local scan_target="$1"
   local relative_path="$2"
-  if scan_case_sensitive_status_for "$absolute_pattern" "$scan_target"; then report PROHIBITED_ABSOLUTE_PATH "$relative_path"; fi
+  if scan_absolute_path_status_for "$scan_target" "$relative_path"; then report PROHIBITED_ABSOLUTE_PATH "$relative_path"; fi
   if scan_status_for "$agent_pattern" "$scan_target"; then report PROHIBITED_AGENT_SURFACE "$relative_path"; fi
   if scan_status_for "$private_endpoint_pattern" "$scan_target"; then report PROHIBITED_PRIVATE_ENDPOINT "$relative_path"; fi
   if scan_status_for "$private_key_pattern" "$scan_target" || \

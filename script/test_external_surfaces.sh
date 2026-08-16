@@ -23,7 +23,11 @@ accepted="$fixture_root/accepted"
 printf '%s\n' '{"login":"public-user","email":"12345+public@users.noreply.github.com","url":"https://api.github.com/users/public-user","ssh_url":"git@github.com:example/repository.git"}' > "$accepted/metadata.json"
 printf '%s\n' public > "$accepted/12345+public@users.noreply.github.com"
 printf '%s\n' public > "$accepted/maintainer@example.com"
-printf '%s\n' 'Authorization:'" Basic ***" > "$accepted/run-123.log"
+printf '%s\n' \
+  'Authorization:'" Basic ***" \
+  '/'"Users/runner/work/example/repository" \
+  '/'"opt/homebrew/bin/example-tool" \
+  > "$accepted/run-123.log"
 GT_PUBLIC_LOGIN_ALLOWLIST=maintainer@example.com "$checker" "$accepted"
 
 assert_rejected() {
@@ -44,6 +48,16 @@ assert_rejected() {
 
 user_marker='/'"Users/private-user/project"
 assert_rejected absolute-path PROHIBITED_ABSOLUTE_PATH "$user_marker"
+private_run_root="$fixture_root/private-runner-path"
+/bin/mkdir -p "$private_run_root"
+printf '%s\n' '/'"Users/private-user/work/repository" \
+  > "$private_run_root/run-999.log"
+private_run_status=0
+"$checker" "$private_run_root" > "$fixture_root/private-runner-path.stdout" \
+  2> "$fixture_root/private-runner-path.stderr" || private_run_status=$?
+test "$private_run_status" -ne 0
+rg -q '^PROHIBITED_ABSOLUTE_PATH:' \
+  "$fixture_root/private-runner-path.stderr"
 assert_rejected agent-path PROHIBITED_AGENT_SURFACE '.codex/private-state'
 printf -v private_ipv4 '%s.%s.%s.%s' 172 20 0 8
 assert_rejected private-endpoint PROHIBITED_PRIVATE_ENDPOINT \
