@@ -10,6 +10,9 @@ final class FocusFixtureController {
     static let showPanelSignal = Notification.Name(
         "com.zaryolabs.GlideTranslate.ui-testing.show-passive-panel"
     )
+    static let passivePanelReadySignal = Notification.Name(
+        "com.zaryolabs.GlideTranslate.ui-testing.passive-panel-ready"
+    )
     static let copyCompletedSignal = Notification.Name(
         "com.zaryolabs.GlideTranslate.ui-testing.copy-completed"
     )

@@ -47,6 +47,9 @@ final class KeyboardNavigationTests: XCTestCase {
     @MainActor
     private func launch(arguments: [String]) throws -> XCUIApplication {
         continueAfterFailure = false
+        let passivePanelReadyProbe = DistributedNotificationProbe(
+            name: FocusFixtureController.passivePanelReadySignal
+        )
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing"] + arguments
         app.launch()
@@ -55,6 +58,15 @@ final class KeyboardNavigationTests: XCTestCase {
                 || app.wait(for: .runningForeground, timeout: 1),
             "Argument-specific UI-test app failed to launch"
         )
+        if arguments.contains("--ui-testing-passive-panel") {
+            guard waitUntil({ passivePanelReadyProbe.receivedCount == 1 }) else {
+                app.terminate()
+                XCTFail(
+                    "Passive-panel UI-test fixture did not acknowledge observer readiness"
+                )
+                throw KeyboardFixtureLaunchError.passivePanelObserverNotReady
+            }
+        }
         return app
     }
 
@@ -78,4 +90,8 @@ final class KeyboardNavigationTests: XCTestCase {
         }
         return predicate()
     }
+}
+
+private enum KeyboardFixtureLaunchError: Error {
+    case passivePanelObserverNotReady
 }

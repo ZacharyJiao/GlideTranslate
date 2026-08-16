@@ -48,6 +48,9 @@ final class AccessibilityAndMotionTests: XCTestCase {
     @MainActor
     private func launch(motionArgument: String) throws -> XCUIApplication {
         continueAfterFailure = false
+        let passivePanelReadyProbe = DistributedNotificationProbe(
+            name: FocusFixtureController.passivePanelReadySignal
+        )
         let app = XCUIApplication()
         app.launchArguments = [
             "--ui-testing",
@@ -58,6 +61,11 @@ final class AccessibilityAndMotionTests: XCTestCase {
         guard app.wait(for: .runningBackground, timeout: 5) else {
             app.terminate()
             throw XCTSkip("MANUAL_BLOCKED_GUI_SESSION: accessory app did not launch")
+        }
+        guard waitUntil({ passivePanelReadyProbe.receivedCount == 1 }) else {
+            app.terminate()
+            XCTFail("Passive-panel UI-test fixture did not acknowledge observer readiness")
+            throw FixtureLaunchError.passivePanelObserverNotReady
         }
         return app
     }
@@ -70,4 +78,21 @@ final class AccessibilityAndMotionTests: XCTestCase {
             userInfo: nil
         )
     }
+
+    @MainActor
+    private func waitUntil(
+        timeout: TimeInterval = 5,
+        _ predicate: () -> Bool
+    ) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if predicate() { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        return predicate()
+    }
+}
+
+private enum FixtureLaunchError: Error {
+    case passivePanelObserverNotReady
 }

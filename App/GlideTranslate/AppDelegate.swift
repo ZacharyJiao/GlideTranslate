@@ -9,6 +9,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         static let showPanel = Notification.Name(
             "com.zaryolabs.GlideTranslate.ui-testing.show-passive-panel"
         )
+        static let passivePanelReady = Notification.Name(
+            "com.zaryolabs.GlideTranslate.ui-testing.passive-panel-ready"
+        )
         static let copyCompleted = Notification.Name(
             "com.zaryolabs.GlideTranslate.ui-testing.copy-completed"
         )
@@ -209,6 +212,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                 object: nil
             )
             observesUITestingSignals = true
+            DistributedNotificationCenter.default().post(
+                name: UITestingSignal.passivePanelReady,
+                object: nil,
+                userInfo: nil
+            )
         }
 
         guard let fixture = Self.safeNextActionFixture,

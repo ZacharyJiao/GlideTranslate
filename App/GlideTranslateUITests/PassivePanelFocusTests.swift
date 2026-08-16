@@ -74,6 +74,9 @@ final class PassivePanelFocusTests: XCTestCase {
     @MainActor
     private func launchHarness() throws -> Harness {
         continueAfterFailure = false
+        let passivePanelReadyProbe = DistributedNotificationProbe(
+            name: FocusFixtureController.passivePanelReadySignal
+        )
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--ui-testing-passive-panel"]
         app.launch()
@@ -83,6 +86,11 @@ final class PassivePanelFocusTests: XCTestCase {
                 "Passive-panel launch argument must keep the accessory app background-only"
             )
             throw HarnessLaunchError.mainAppDidNotRemainBackground
+        }
+        guard waitUntil({ passivePanelReadyProbe.receivedCount == 1 }) else {
+            app.terminate()
+            XCTFail("Passive-panel UI-test fixture did not acknowledge observer readiness")
+            throw HarnessLaunchError.passivePanelObserverNotReady
         }
 
         do {
@@ -122,6 +130,7 @@ final class PassivePanelFocusTests: XCTestCase {
 
 private enum HarnessLaunchError: Error {
     case mainAppDidNotRemainBackground
+    case passivePanelObserverNotReady
 }
 
 @MainActor
