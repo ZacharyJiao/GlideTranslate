@@ -2,6 +2,20 @@ import XCTest
 @testable import SharedSupport
 
 final class StableValueTests: XCTestCase {
+    func testApplicationIdentityMatchesLocalizedRuntimeNameByBundleIdentifier() {
+        let configured = ApplicationIdentity(
+            bundleIdentifier: "com.apple.TextEdit",
+            displayName: "TextEdit"
+        )
+        let running = ApplicationIdentity(
+            bundleIdentifier: "com.apple.TextEdit",
+            displayName: "文本编辑"
+        )
+
+        XCTAssertEqual(configured, running)
+        XCTAssertTrue(Set([configured]).contains(running))
+    }
+
     func testProviderSnapshotChangesWhenConfigurationRevisionChanges() {
         let id = ProviderConfigurationID()
         let origin = ProviderOrigin(

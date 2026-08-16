@@ -8,4 +8,12 @@ public struct ApplicationIdentity: Hashable, Sendable, Codable {
         self.bundleIdentifier = bundleIdentifier
         self.displayName = displayName
     }
+
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.bundleIdentifier == rhs.bundleIdentifier
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(bundleIdentifier)
+    }
 }

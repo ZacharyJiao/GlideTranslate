@@ -22,6 +22,35 @@ final class TriggerPolicyMatrixTests: XCTestCase {
         let expected: PreReadDecision
     }
 
+    func testAutomaticCaptureAcceptsLocalizedRuntimeNameForConfiguredBundle() {
+        let configured = ApplicationIdentity(
+            bundleIdentifier: "com.apple.TextEdit",
+            displayName: "TextEdit"
+        )
+        let running = ApplicationIdentity(
+            bundleIdentifier: "com.apple.TextEdit",
+            displayName: "文本编辑"
+        )
+        let policy = CapturePolicySnapshot.fixture(
+            master: true,
+            mouseEnabled: true,
+            keyboardEnabled: false,
+            general: [configured],
+            offDevice: [],
+            clipboard: false
+        )
+
+        XCTAssertEqual(
+            PreReadPolicy.evaluate(
+                trigger: .mouse,
+                application: running,
+                policy: policy,
+                privacyClass: .localOnDevice
+            ),
+            .accessibility
+        )
+    }
+
     func testCompleteTriggerMatrix() {
         let mouseDisabled = CapturePolicySnapshot.fixture(
             master: true,
