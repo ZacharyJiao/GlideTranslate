@@ -65,8 +65,37 @@ assert_closed_failure() {
 accepted_archive="$(make_archive accepted 0.1.0)"
 accepted_output="$fixture_root/accepted-output"
 record_stage ACCEPTED_FIXTURE
+accepted_status=0
 "$packager" "$accepted_archive" "$accepted_output" \
-  > "$fixture_root/accepted.stdout" 2> "$fixture_root/accepted.stderr"
+  > "$fixture_root/accepted.stdout" 2> "$fixture_root/accepted.stderr" \
+  || accepted_status=$?
+if [ "$accepted_status" -ne 0 ]; then
+  accepted_category="$(/bin/cat "$fixture_root/accepted.stderr")"
+  case "$accepted_category" in
+    RELEASE_SIGNING_*|RELEASE_SIGNATURE_*)
+      record_stage ACCEPTED_FIXTURE_SIGNATURE
+      ;;
+    RELEASE_ENTITLEMENTS_*)
+      record_stage ACCEPTED_FIXTURE_ENTITLEMENTS
+      ;;
+    RELEASE_GATEKEEPER_*)
+      record_stage ACCEPTED_FIXTURE_GATEKEEPER
+      ;;
+    RELEASE_PAYLOAD_*|RELEASE_ARCHIVE_MANIFEST_*)
+      record_stage ACCEPTED_FIXTURE_PAYLOAD
+      ;;
+    RELEASE_ARCHIVE_*|RELEASE_OUTPUT_*)
+      record_stage ACCEPTED_FIXTURE_ARCHIVE
+      ;;
+    RELEASE_CHECKSUM_*)
+      record_stage ACCEPTED_FIXTURE_CHECKSUM
+      ;;
+    *)
+      record_stage ACCEPTED_FIXTURE_UNKNOWN
+      ;;
+  esac
+  exit "$accepted_status"
+fi
 test "$(/bin/cat "$fixture_root/accepted.stdout")" = ADHOC_RELEASE_PACKAGE_PASSED
 test ! -s "$fixture_root/accepted.stderr"
 
