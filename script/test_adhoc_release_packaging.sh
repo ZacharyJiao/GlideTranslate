@@ -62,11 +62,27 @@ assert_closed_failure() {
   test ! -s "$fixture_root/$name.stdout"
 }
 
+rejecting_spctl="$fixture_root/rejecting-spctl"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 3' > "$rejecting_spctl"
+/bin/chmod 755 "$rejecting_spctl"
+rejecting_policy="$fixture_root/rejecting-policy"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'printf "%s\n" '\''{"output":[{"SyspolicyCheckErrorLevel":"Warning","SyspolicyCheckShortError":"Adhoc Signed App"},{"SyspolicyCheckErrorLevel":"Fatal","SyspolicyCheckShortError":"Notary Ticket Missing"}]}'\''' \
+  'exit 70' > "$rejecting_policy"
+/bin/chmod 755 "$rejecting_policy"
+contract_packager="$fixture_root/contract-packager"
+/usr/bin/sed \
+  -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
+  -e "s#/usr/sbin/spctl#$rejecting_spctl#g" \
+  -e "s#/usr/bin/syspolicy_check#$rejecting_policy#g" \
+  "$packager" > "$contract_packager"
+/bin/chmod 755 "$contract_packager"
+
 accepted_archive="$(make_archive accepted 0.1.0)"
 accepted_output="$fixture_root/accepted-output"
 record_stage ACCEPTED_FIXTURE
 accepted_status=0
-"$packager" "$accepted_archive" "$accepted_output" \
+"$contract_packager" "$accepted_archive" "$accepted_output" \
   > "$fixture_root/accepted.stdout" 2> "$fixture_root/accepted.stderr" \
   || accepted_status=$?
 if [ "$accepted_status" -ne 0 ]; then
@@ -142,7 +158,7 @@ fi
 /usr/bin/cmp -s "$fixture_root/entitlements.binary" \
   "$fixture_root/approved-entitlements.binary"
 spctl_status=0
-/usr/sbin/spctl -a -t exec "$app" >/dev/null 2>&1 || spctl_status=$?
+"$rejecting_spctl" -a -t exec "$app" >/dev/null 2>&1 || spctl_status=$?
 test "$spctl_status" -eq 3
 GT_APPROVED_BUNDLE_ID=com.zaryolabs.GlideTranslate \
   "$inspector" "$extracted" "$fixture_root/extracted-inspection"
@@ -280,7 +296,7 @@ roundtrip_packager="$fixture_root/roundtrip-packager"
 /usr/bin/sed \
   -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
   -e "s#/usr/bin/ditto#$roundtrip_tool#g" \
-  "$packager" > "$roundtrip_packager"
+  "$contract_packager" > "$roundtrip_packager"
 /bin/chmod 755 "$roundtrip_packager"
 record_stage ROUNDTRIP
 assert_closed_failure roundtrip RELEASE_ARCHIVE_ROUNDTRIP_MISMATCH \
@@ -294,6 +310,7 @@ printf '%s\n' '#!/usr/bin/env bash' \
 policy_packager="$fixture_root/policy-packager"
 /usr/bin/sed \
   -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
+  -e "s#/usr/sbin/spctl#$rejecting_spctl#g" \
   -e "s#/usr/bin/syspolicy_check#$policy_tool#g" \
   "$packager" > "$policy_packager"
 /bin/chmod 755 "$policy_packager"
@@ -310,7 +327,7 @@ zip_packager="$fixture_root/zip-packager"
 /usr/bin/sed \
   -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
   -e "s#/usr/bin/ditto#$zip_tool#g" \
-  "$packager" > "$zip_packager"
+  "$contract_packager" > "$zip_packager"
 /bin/chmod 755 "$zip_packager"
 record_stage ZIP_FAILURE
 assert_closed_failure zip RELEASE_ARCHIVE_CREATION_FAILED \
@@ -326,7 +343,7 @@ unzip_packager="$fixture_root/unzip-packager"
 /usr/bin/sed \
   -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
   -e "s#/usr/bin/ditto#$unzip_tool#g" \
-  "$packager" > "$unzip_packager"
+  "$contract_packager" > "$unzip_packager"
 /bin/chmod 755 "$unzip_packager"
 record_stage UNZIP_FAILURE
 assert_closed_failure unzip RELEASE_ARCHIVE_EXTRACTION_FAILED \
@@ -343,7 +360,7 @@ checksum_packager="$fixture_root/checksum-packager"
 /usr/bin/sed \
   -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
   -e "s#/usr/bin/shasum#$checksum_tool#g" \
-  "$packager" > "$checksum_packager"
+  "$contract_packager" > "$checksum_packager"
 /bin/chmod 755 "$checksum_packager"
 checksum_output="$fixture_root/checksum-output"
 record_stage CHECKSUM_FAILURE
