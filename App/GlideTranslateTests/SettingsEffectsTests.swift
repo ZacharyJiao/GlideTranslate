@@ -45,6 +45,51 @@ final class SettingsEffectsTests: XCTestCase {
         XCTAssertEqual(fixture.recorder.effects, [])
     }
 
+    func testSelectionApplicationAllowlistUsesPickerInsteadOfManualIdentityFields() {
+        let fixture = Fixture()
+        let host = NSHostingView(rootView: SelectionSettingsView(viewModel: fixture.model))
+        host.frame = NSRect(x: 0, y: 0, width: 700, height: 700)
+        host.layoutSubtreeIfNeeded()
+
+        XCTAssertNil(
+            firstDescendant(of: NSTextField.self, in: host),
+            "Application identities must come from a selected app bundle, not manual text fields"
+        )
+    }
+
+    func testApplicationPickerDerivesIdentityFromSelectedBundle() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "glidetranslate-picker-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let app = root.appendingPathComponent("Fixture.app", isDirectory: true)
+        let contents = app.appendingPathComponent("Contents", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: contents,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+        let plist: [String: Any] = [
+            "CFBundleIdentifier": "invalid.example.fixture",
+            "CFBundleDisplayName": "Fixture Display Name",
+        ]
+        let data = try PropertyListSerialization.data(
+            fromPropertyList: plist,
+            format: .xml,
+            options: 0
+        )
+        try data.write(to: contents.appendingPathComponent("Info.plist"))
+
+        XCTAssertEqual(
+            SystemApplicationChooser.applicationIdentity(at: app),
+            ApplicationIdentity(
+                bundleIdentifier: "invalid.example.fixture",
+                displayName: "Fixture Display Name"
+            )
+        )
+        XCTAssertNil(SystemApplicationChooser.applicationIdentity(at: root))
+    }
+
     func testAccessibilityStateAndActionsAreExplicitAndProductionMonitorKeepsBothFlags() async throws {
         let fixture = Fixture()
         fixture.selection.status = .granted

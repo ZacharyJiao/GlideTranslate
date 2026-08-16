@@ -38,6 +38,25 @@ actor DefaultPromptPresetStore: PromptPresetStore {
         return try validation.previewCustom(try await uniqueCustomPreset(id))
     }
 
+    func preview(
+        _ id: PresetID,
+        sourceLanguage: LanguageChoice,
+        targetLanguage: LanguageChoice
+    ) async throws -> PromptPresetPreview {
+        if isBuiltIn(id) {
+            return try validation.previewBuiltIn(
+                id,
+                sourceLanguage: sourceLanguage,
+                targetLanguage: targetLanguage
+            )
+        }
+        return try validation.previewCustom(
+            try await uniqueCustomPreset(id),
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage
+        )
+    }
+
     func validatedPreset(_ id: PresetID) async throws -> ValidatedPromptPreset {
         if isBuiltIn(id) {
             return try validation.validatedBuiltIn(id)

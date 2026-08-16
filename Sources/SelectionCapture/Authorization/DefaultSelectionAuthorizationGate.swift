@@ -162,16 +162,22 @@ package actor DefaultSelectionAuthorizationGate:
         ) else {
             return .rejected(.noValidSelection)
         }
-        guard let reservation = duplicateChecker.reserveIfNew(
-            text: filteredText,
-            application: context.application
-        ) else {
-            return .rejected(.noValidSelection)
+        let reservation: DuplicateReservation?
+        if trigger == .shortcut {
+            reservation = nil
+        } else {
+            guard let automaticReservation = duplicateChecker.reserveIfNew(
+                text: filteredText,
+                application: context.application
+            ) else {
+                return .rejected(.noValidSelection)
+            }
+            reservation = automaticReservation
         }
 
         var reservationCommitted = false
         defer {
-            if !reservationCommitted {
+            if !reservationCommitted, let reservation {
                 duplicateChecker.cancel(reservation)
             }
         }
@@ -216,7 +222,9 @@ package actor DefaultSelectionAuthorizationGate:
             requestID: TranslationRequestID(),
             payload: payload
         )
-        duplicateChecker.commit(reservation)
+        if let reservation {
+            duplicateChecker.commit(reservation)
+        }
         reservationCommitted = true
         return .authorized(intent, .init(payload: payload))
     }

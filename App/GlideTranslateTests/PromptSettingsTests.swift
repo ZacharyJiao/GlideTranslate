@@ -48,6 +48,11 @@ final class PromptSettingsTests: XCTestCase {
         await fixture.model.previewPrompt(builtIn.id)
         XCTAssertFalse(fixture.model.promptPreview?.instruction.isEmpty ?? true)
         XCTAssertFalse(fixture.model.promptPreview?.sampleUserContent.isEmpty ?? true)
+        XCTAssertTrue(fixture.model.promptPreview?.instruction.contains("zh-Hans") == true)
+        XCTAssertFalse(
+            fixture.model.promptPreview?.instruction.contains("the selected target language")
+                ?? true
+        )
         let previewIDs = await fixture.prompts.previewIDs()
         XCTAssertEqual(previewIDs, [builtIn.id])
 
@@ -174,7 +179,7 @@ private struct U8SyntheticPreferencesError: Error {}
 
 private struct U8PreferencesFixture: Codable {
     var uiLanguage = ApplicationLanguage.english
-    var defaultTargetLanguage = LanguageChoice.automatic
+    var defaultTargetLanguage = LanguageChoice.identified("zh-Hans")
     var onboardingCompleted = false
     var automaticCaptureEnabled = false
     var generalAutomaticApplications: Set<ApplicationIdentity> = []
@@ -226,6 +231,25 @@ actor U8PromptStore: PromptPresetStore {
             return try validation.previewCustom(preset)
         }
         return try validation.previewBuiltIn(id)
+    }
+    func preview(
+        _ id: PresetID,
+        sourceLanguage: LanguageChoice,
+        targetLanguage: LanguageChoice
+    ) throws -> PromptPresetPreview {
+        previews.append(id)
+        if let preset = custom.first(where: { $0.id == id }) {
+            return try validation.previewCustom(
+                preset,
+                sourceLanguage: sourceLanguage,
+                targetLanguage: targetLanguage
+            )
+        }
+        return try validation.previewBuiltIn(
+            id,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage
+        )
     }
     func validatedPreset(_ id: PresetID) throws -> ValidatedPromptPreset {
         if let preset = custom.first(where: { $0.id == id }) {

@@ -1,9 +1,17 @@
 import SwiftUI
 
+@MainActor
 struct SelectionSettingsView: View {
     @Bindable var viewModel: SettingsViewModel
-    @State private var applicationName = ""
-    @State private var applicationBundleIdentifier = ""
+    private let applicationChooser: any ApplicationChoosing
+
+    init(
+        viewModel: SettingsViewModel,
+        applicationChooser: any ApplicationChoosing = SystemApplicationChooser()
+    ) {
+        self.viewModel = viewModel
+        self.applicationChooser = applicationChooser
+    }
 
     var body: some View {
         Form {
@@ -47,25 +55,18 @@ struct SelectionSettingsView: View {
                         .accessibilityHint("selection.applications.remove.hint")
                     }
                 }
-                TextField("selection.applications.displayName", text: $applicationName)
-                TextField(
-                    "selection.applications.bundleIdentifier",
-                    text: $applicationBundleIdentifier
-                )
                 Button("selection.applications.add") {
-                    let name = applicationName
-                    let bundleIdentifier = applicationBundleIdentifier
+                    guard let application = applicationChooser.chooseApplication() else {
+                        return
+                    }
                     viewModel.performOwned { model in
                         await model.addGeneralApplication(
-                            bundleIdentifier: bundleIdentifier,
-                            displayName: name
+                            bundleIdentifier: application.bundleIdentifier,
+                            displayName: application.displayName
                         )
-                        if model.safeError == nil {
-                            applicationName = ""
-                            applicationBundleIdentifier = ""
-                        }
                     }
                 }
+                .accessibilityIdentifier("selection.applications.add")
             }
             .accessibilityIdentifier("selection.applications")
 

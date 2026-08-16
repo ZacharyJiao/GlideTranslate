@@ -4221,38 +4221,6 @@
         }
       }
     },
-    "selection.applications.bundleIdentifier": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bundle identifier"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "软件包标识符"
-          }
-        }
-      }
-    },
-    "selection.applications.displayName": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Display name"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "显示名称"
-          }
-        }
-      }
-    },
     "selection.applications.none": {
       "localizations": {
         "en": {

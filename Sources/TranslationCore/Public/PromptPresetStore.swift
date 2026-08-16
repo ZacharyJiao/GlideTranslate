@@ -6,7 +6,22 @@ public protocol PromptPresetStore: Sendable {
     func duplicateBuiltIn(_ id: PresetID) async throws -> CustomPreset
     func validate(_ preset: CustomPreset) async throws -> ValidatedPromptPreset
     func preview(_ id: PresetID) async throws -> PromptPresetPreview
+    func preview(
+        _ id: PresetID,
+        sourceLanguage: LanguageChoice,
+        targetLanguage: LanguageChoice
+    ) async throws -> PromptPresetPreview
     func validatedPreset(_ id: PresetID) async throws -> ValidatedPromptPreset
     func save(_ preset: CustomPreset) async throws
     func delete(_ id: PresetID) async throws
+}
+
+public extension PromptPresetStore {
+    func preview(
+        _ id: PresetID,
+        sourceLanguage: LanguageChoice,
+        targetLanguage: LanguageChoice
+    ) async throws -> PromptPresetPreview {
+        try await preview(id)
+    }
 }

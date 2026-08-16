@@ -353,25 +353,46 @@ final class SystemSelectionPipelineTests: XCTestCase {
             XCTAssertEqual(fixture.mintSpy.count.value, 0)
         }
 
-        let fixture = AuthorizationFixture()
-        let gate = makeProductionGate(fixture)
-        let pipeline = makeImmediatePipeline(fixture, gate: gate)
-        let first = await pipeline.process(
-            trigger: .shortcut,
-            options: fixture.options,
-            policy: fixture.policy,
-            provider: fixture.expected
+        let automaticFixture = AuthorizationFixture()
+        let automaticGate = makeProductionGate(automaticFixture)
+        let firstAutomatic = await automaticGate.authorizeSystemSelection(
+            trigger: .mouse,
+            context: automaticFixture.context,
+            options: automaticFixture.options,
+            policy: automaticFixture.policy,
+            provider: automaticFixture.expected
         )
-        let duplicate = await pipeline.process(
-            trigger: .shortcut,
-            options: fixture.options,
-            policy: fixture.policy,
-            provider: fixture.expected
+        let duplicateAutomatic = await automaticGate.authorizeSystemSelection(
+            trigger: .mouse,
+            context: automaticFixture.context,
+            options: automaticFixture.options,
+            policy: automaticFixture.policy,
+            provider: automaticFixture.expected
         )
-        XCTAssertTrue(first.isAuthorized)
-        XCTAssertEqual(duplicate.failure, .noValidSelection)
-        XCTAssertEqual(fixture.snapshotReader.count.value, 1)
-        XCTAssertEqual(fixture.mintSpy.count.value, 1)
+        XCTAssertTrue(firstAutomatic.isAuthorized)
+        XCTAssertEqual(duplicateAutomatic.failure, .noValidSelection)
+        XCTAssertEqual(automaticFixture.snapshotReader.count.value, 1)
+        XCTAssertEqual(automaticFixture.mintSpy.count.value, 1)
+
+        let shortcutFixture = AuthorizationFixture()
+        let shortcutGate = makeProductionGate(shortcutFixture)
+        let shortcutPipeline = makeImmediatePipeline(shortcutFixture, gate: shortcutGate)
+        let firstShortcut = await shortcutPipeline.process(
+            trigger: .shortcut,
+            options: shortcutFixture.options,
+            policy: shortcutFixture.policy,
+            provider: shortcutFixture.expected
+        )
+        let retryShortcut = await shortcutPipeline.process(
+            trigger: .shortcut,
+            options: shortcutFixture.options,
+            policy: shortcutFixture.policy,
+            provider: shortcutFixture.expected
+        )
+        XCTAssertTrue(firstShortcut.isAuthorized)
+        XCTAssertTrue(retryShortcut.isAuthorized)
+        XCTAssertEqual(shortcutFixture.snapshotReader.count.value, 2)
+        XCTAssertEqual(shortcutFixture.mintSpy.count.value, 2)
     }
 
     func testProviderChangeCancelsReservationAndAllowsRetry() async {

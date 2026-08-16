@@ -794,7 +794,11 @@ final class SettingsViewModel {
         promptPreviewGeneration &+= 1
         let generation = promptPreviewGeneration
         do {
-            let preview = try await promptStore.preview(id)
+            let preview = try await promptStore.preview(
+                id,
+                sourceLanguage: .automatic,
+                targetLanguage: snapshot.defaultTargetLanguage
+            )
             guard generation == promptPreviewGeneration else { return }
             promptPreview = preview
             safeError = nil

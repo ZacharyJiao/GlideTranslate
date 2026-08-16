@@ -54,6 +54,19 @@ public struct DefaultPromptPresetValidationService:
 
     public func previewBuiltIn(_ id: PresetID) throws -> PromptPresetPreview {
         let definition = try builtInDefinition(id)
+        return try previewBuiltIn(
+            id,
+            sourceLanguage: .automatic,
+            targetLanguage: definition.descriptor.targetLanguage
+        )
+    }
+
+    public func previewBuiltIn(
+        _ id: PresetID,
+        sourceLanguage: LanguageChoice,
+        targetLanguage: LanguageChoice
+    ) throws -> PromptPresetPreview {
+        let definition = try builtInDefinition(id)
         let syntax: PromptSyntaxTree
         do {
             syntax = try parser.parse(definition.template)
@@ -62,11 +75,24 @@ public struct DefaultPromptPresetValidationService:
         }
         return makePreview(
             syntax: syntax,
-            targetLanguage: definition.descriptor.targetLanguage
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage
         )
     }
 
     public func previewCustom(_ preset: CustomPreset) throws -> PromptPresetPreview {
+        try previewCustom(
+            preset,
+            sourceLanguage: .automatic,
+            targetLanguage: preset.targetLanguage
+        )
+    }
+
+    public func previewCustom(
+        _ preset: CustomPreset,
+        sourceLanguage: LanguageChoice,
+        targetLanguage: LanguageChoice
+    ) throws -> PromptPresetPreview {
         let validated = try validator.validate(preset)
         let syntax: PromptSyntaxTree
         do {
@@ -76,7 +102,8 @@ public struct DefaultPromptPresetValidationService:
         }
         return makePreview(
             syntax: syntax,
-            targetLanguage: preset.targetLanguage
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage
         )
     }
 
@@ -89,12 +116,13 @@ public struct DefaultPromptPresetValidationService:
 
     private func makePreview(
         syntax: PromptSyntaxTree,
+        sourceLanguage: LanguageChoice,
         targetLanguage: LanguageChoice
     ) -> PromptPresetPreview {
         let compiled = compiler.compile(
             syntax,
             selectedText: PresetPreview.bundledSample,
-            source: .automatic,
+            source: sourceLanguage,
             target: targetLanguage
         )
         return PromptPresetPreview(
