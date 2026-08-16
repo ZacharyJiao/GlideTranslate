@@ -20,6 +20,13 @@ trap 'exit 129' HUP
 test -x "$packager"
 test -x "$inspector"
 
+record_stage() {
+  if [ -n "${GT_AGGREGATE_STAGE_FILE:-}" ]; then
+    printf 'ADHOC_RELEASE_PACKAGING_TESTS_%s\n' "$1" \
+      > "$GT_AGGREGATE_STAGE_FILE"
+  fi
+}
+
 make_archive() {
   name="$1"
   version="$2"
@@ -57,6 +64,7 @@ assert_closed_failure() {
 
 accepted_archive="$(make_archive accepted 0.1.0)"
 accepted_output="$fixture_root/accepted-output"
+record_stage ACCEPTED_FIXTURE
 "$packager" "$accepted_archive" "$accepted_output" \
   > "$fixture_root/accepted.stdout" 2> "$fixture_root/accepted.stderr"
 test "$(/bin/cat "$fixture_root/accepted.stdout")" = ADHOC_RELEASE_PACKAGE_PASSED
@@ -114,16 +122,19 @@ rg -q '^PAYLOAD_INSPECTION:PASS$' \
 
 existing_output="$fixture_root/existing-output"
 /bin/mkdir "$existing_output"
+record_stage EXISTING_OUTPUT
 assert_closed_failure existing RELEASE_OUTPUT_EXISTS \
   "$packager" "$accepted_archive" "$existing_output"
 
 wrong_version="$(make_archive wrong-version 1.0)"
+record_stage WRONG_VERSION
 assert_closed_failure wrong-version RELEASE_VERSION_MISMATCH \
   "$packager" "$wrong_version" "$fixture_root/wrong-version-output"
 
 wrong_build="$(make_archive wrong-build 0.1.0)"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 2' \
   "$wrong_build/Products/Applications/GlideTranslate.app/Contents/Info.plist"
+record_stage WRONG_BUILD
 assert_closed_failure wrong-build RELEASE_BUILD_MISMATCH \
   "$packager" "$wrong_build" "$fixture_root/wrong-build-output"
 
@@ -132,12 +143,14 @@ wrong_architecture="$(make_archive wrong-architecture 0.1.0)"
   -o "$wrong_architecture/Products/Applications/GlideTranslate.app/Contents/MacOS/GlideTranslate" - <<'EOF'
 int main(void) { return 0; }
 EOF
+record_stage WRONG_ARCHITECTURE
 assert_closed_failure wrong-architecture RELEASE_PAYLOAD_INSPECTION_FAILED \
   "$packager" "$wrong_architecture" \
   "$fixture_root/wrong-architecture-output"
 
 missing_layout="$fixture_root/missing-layout.xcarchive"
 /bin/mkdir "$missing_layout"
+record_stage MISSING_LAYOUT
 assert_closed_failure missing-layout RELEASE_ARCHIVE_LAYOUT_INVALID \
   "$packager" "$missing_layout" "$fixture_root/missing-layout-output"
 
@@ -145,6 +158,7 @@ extra_payload="$(make_archive extra-payload 0.1.0)"
 /bin/mkdir -p "$extra_payload/Products/Applications/Other.app/Contents"
 printf '%s\n' unrelated \
   > "$extra_payload/Products/Applications/Other.app/Contents/Info.plist"
+record_stage EXTRA_PAYLOAD
 assert_closed_failure extra-payload RELEASE_PAYLOAD_INSPECTION_FAILED \
   "$packager" "$extra_payload" "$fixture_root/extra-payload-output"
 
@@ -157,6 +171,7 @@ injected_packager="$fixture_root/injected-packager"
   -e "s#/usr/bin/codesign#$signing_tool#g" \
   "$packager" > "$injected_packager"
 /bin/chmod 755 "$injected_packager"
+record_stage SIGNING_FAILURE
 assert_closed_failure signing RELEASE_SIGNING_FAILED \
   "$injected_packager" "$accepted_archive" "$fixture_root/signing-output"
 
@@ -174,6 +189,7 @@ classification_packager="$fixture_root/classification-packager"
   -e "s#/usr/bin/codesign#$classification_tool#g" \
   "$packager" > "$classification_packager"
 /bin/chmod 755 "$classification_packager"
+record_stage SIGNATURE_CLASSIFICATION
 assert_closed_failure classification RELEASE_SIGNATURE_CLASSIFICATION_MISMATCH \
   "$classification_packager" "$accepted_archive" \
   "$fixture_root/classification-output"
@@ -192,6 +208,7 @@ entitlements_packager="$fixture_root/entitlements-packager"
   -e "s#/usr/bin/codesign#$entitlements_tool#g" \
   "$packager" > "$entitlements_packager"
 /bin/chmod 755 "$entitlements_packager"
+record_stage ENTITLEMENTS
 assert_closed_failure entitlements RELEASE_ENTITLEMENTS_MISMATCH \
   "$entitlements_packager" "$accepted_archive" \
   "$fixture_root/entitlements-output"
@@ -205,6 +222,7 @@ spctl_packager="$fixture_root/spctl-packager"
   -e "s#/usr/sbin/spctl#$spctl_tool#g" \
   "$packager" > "$spctl_packager"
 /bin/chmod 755 "$spctl_packager"
+record_stage SPCTL_FAILURE
 assert_closed_failure spctl RELEASE_GATEKEEPER_UNVERIFIABLE \
   "$spctl_packager" "$accepted_archive" "$fixture_root/spctl-output"
 
@@ -217,6 +235,7 @@ accepted_spctl_packager="$fixture_root/accepted-spctl-packager"
   -e "s#/usr/sbin/spctl#$accepted_spctl#g" \
   "$packager" > "$accepted_spctl_packager"
 /bin/chmod 755 "$accepted_spctl_packager"
+record_stage SPCTL_ACCEPTED
 assert_closed_failure accepted-spctl RELEASE_GATEKEEPER_CLASSIFICATION_MISMATCH \
   "$accepted_spctl_packager" "$accepted_archive" \
   "$fixture_root/accepted-spctl-output"
@@ -234,6 +253,7 @@ roundtrip_packager="$fixture_root/roundtrip-packager"
   -e "s#/usr/bin/ditto#$roundtrip_tool#g" \
   "$packager" > "$roundtrip_packager"
 /bin/chmod 755 "$roundtrip_packager"
+record_stage ROUNDTRIP
 assert_closed_failure roundtrip RELEASE_ARCHIVE_ROUNDTRIP_MISMATCH \
   "$roundtrip_packager" "$accepted_archive" "$fixture_root/roundtrip-output"
 
@@ -248,6 +268,7 @@ policy_packager="$fixture_root/policy-packager"
   -e "s#/usr/bin/syspolicy_check#$policy_tool#g" \
   "$packager" > "$policy_packager"
 /bin/chmod 755 "$policy_packager"
+record_stage POLICY_CLASSIFICATION
 assert_closed_failure policy RELEASE_GATEKEEPER_CLASSIFICATION_MISMATCH \
   "$policy_packager" "$accepted_archive" "$fixture_root/policy-output"
 
@@ -262,6 +283,7 @@ zip_packager="$fixture_root/zip-packager"
   -e "s#/usr/bin/ditto#$zip_tool#g" \
   "$packager" > "$zip_packager"
 /bin/chmod 755 "$zip_packager"
+record_stage ZIP_FAILURE
 assert_closed_failure zip RELEASE_ARCHIVE_CREATION_FAILED \
   "$zip_packager" "$accepted_archive" "$fixture_root/zip-output"
 test ! -e "$fixture_root/zip-output"
@@ -277,6 +299,7 @@ unzip_packager="$fixture_root/unzip-packager"
   -e "s#/usr/bin/ditto#$unzip_tool#g" \
   "$packager" > "$unzip_packager"
 /bin/chmod 755 "$unzip_packager"
+record_stage UNZIP_FAILURE
 assert_closed_failure unzip RELEASE_ARCHIVE_EXTRACTION_FAILED \
   "$unzip_packager" "$accepted_archive" "$fixture_root/unzip-output"
 test ! -e "$fixture_root/unzip-output"
@@ -294,8 +317,10 @@ checksum_packager="$fixture_root/checksum-packager"
   "$packager" > "$checksum_packager"
 /bin/chmod 755 "$checksum_packager"
 checksum_output="$fixture_root/checksum-output"
+record_stage CHECKSUM_FAILURE
 assert_closed_failure checksum RELEASE_CHECKSUM_UNVERIFIABLE \
   "$checksum_packager" "$accepted_archive" "$checksum_output"
 test ! -e "$checksum_output"
 
+record_stage COMPLETE
 printf '%s\n' ADHOC_RELEASE_PACKAGING_TESTS_PASSED
