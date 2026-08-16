@@ -34,6 +34,7 @@ make_extension() { /bin/mkdir -p "$1/data"; printf '%s\n' private > "$1/data/his
 make_oversized() { /usr/sbin/mkfile 10485761 "$1/large.bin"; commit_all "$1"; }
 make_symlink() { /bin/ln -s target "$1/link"; commit_all "$1"; }
 make_bad_identity() { git -C "$1" config user.email 'synthetic@example.invalid'; printf '%s\n' change >> "$1/README.md"; commit_all "$1"; }
+make_github_lookalike_identity() { git -C "$1" config user.email 'synthetic@github.com'; printf '%s\n' change >> "$1/README.md"; commit_all "$1"; }
 make_bad_message() { value='Reference /'"Users/synthetic-private-value/project"; printf '%s\n' change >> "$1/README.md"; commit_all "$1" "$value"; }
 make_content() { value='/'"Users/synthetic-private-value/project"; printf '%s\n' "$value" > "$1/payload.txt"; commit_all "$1"; }
 make_deleted_content() { make_content "$1"; /bin/rm "$1/payload.txt"; commit_all "$1" 'Delete rejected row from HEAD'; }
@@ -44,6 +45,7 @@ assert_history_rejected extension HISTORY_PROHIBITED_EXTENSION make_extension
 assert_history_rejected oversized HISTORY_OVERSIZED_BLOB make_oversized
 assert_history_rejected symlink HISTORY_PROHIBITED_SYMLINK make_symlink
 assert_history_rejected bad-identity UNSAFE_COMMIT_IDENTITY make_bad_identity
+assert_history_rejected github-lookalike-identity UNSAFE_COMMIT_IDENTITY make_github_lookalike_identity
 assert_history_rejected bad-message UNSAFE_COMMIT_MESSAGE make_bad_message
 assert_history_rejected content HISTORY_PROHIBITED_CONTENT make_content
 assert_history_rejected deleted-in-head HISTORY_PROHIBITED_CONTENT make_deleted_content
@@ -193,6 +195,14 @@ make_allowed_privacy_loopbacks() {
 repo="$fixture_root/accepted-privacy-loopbacks"
 new_repo "$repo"
 make_allowed_privacy_loopbacks "$repo"
+"$workspace_root/script/check_history.sh" "$repo"
+
+repo="$fixture_root/accepted-github-system-identity"
+new_repo "$repo"
+git -C "$repo" config user.name 'GitHub'
+git -C "$repo" config user.email 'noreply@github.com'
+printf '%s\n' system-generated >> "$repo/README.md"
+commit_all "$repo" 'Synthetic GitHub merge commit'
 "$workspace_root/script/check_history.sh" "$repo"
 
 repo="$fixture_root/accepted"; new_repo "$repo"

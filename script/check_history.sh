@@ -38,7 +38,18 @@ check_history_content_object() {
 commit_metadata="$history_root/commit-metadata"
 commits="$history_root/commits"
 git -C "$repository" log --all --format='%H%x09%aE%x09%cE%x09%s' > "$commit_metadata" 2> "$history_root/log.private" || { printf '%s\n' HISTORY_ENUMERATION_FAILED >&2; exit 2; }
-/usr/bin/awk -F '\t' '$2 !~ /@users[.]noreply[.]github[.]com$/ || $3 !~ /@users[.]noreply[.]github[.]com$/ {print "UNSAFE_COMMIT_IDENTITY:" $1 > "/dev/stderr"; bad=1} /\/Users\/|\/home\// {print "UNSAFE_COMMIT_MESSAGE:" $1 > "/dev/stderr"; bad=1} END {exit bad}' "$commit_metadata"
+/usr/bin/awk -F '\t' '
+  function safe_identity(email) {
+    return email ~ /@users[.]noreply[.]github[.]com$/ || email == "noreply@github.com"
+  }
+  !safe_identity($2) || !safe_identity($3) {
+    print "UNSAFE_COMMIT_IDENTITY:" $1 > "/dev/stderr"; bad=1
+  }
+  /\/Users\/|\/home\// {
+    print "UNSAFE_COMMIT_MESSAGE:" $1 > "/dev/stderr"; bad=1
+  }
+  END {exit bad}
+' "$commit_metadata"
 git -C "$repository" rev-list --all > "$commits" 2> "$history_root/rev-list.private" || { printf '%s\n' HISTORY_ENUMERATION_FAILED >&2; exit 2; }
 while IFS= read -r commit; do
   tree_inventory="$history_root/tree-$commit"

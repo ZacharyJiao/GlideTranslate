@@ -67,7 +67,7 @@ home_prefix='/'"home/"
 absolute_pattern="${users_prefix}[^/[:space:]]+|${home_prefix}[^/[:space:]]+|/private/(tmp|var)(/|[[:space:]])|/tmp(/|[[:space:]])|/Volumes(/|[[:space:]])|/opt/homebrew(/|[[:space:]])"
 agent_pattern='(^|/|[[:space:]])([.]codex|[.]superpowers|docs/superpowers|AGENTS[.]md|CLAUDE[.]md)(/|$|[[:space:]])'
 private_endpoint_pattern='https?://[^/@[:space:]]+:[^/@[:space:]]+@|https?://(localhost|127([.][0-9]{1,3}){3}|10[.]|169[.]254[.]|172[.](1[6-9]|2[0-9]|3[01])[.]|192[.]168[.]|\[?::1\]?|\[?fe80:|\[?f[cd][0-9a-f]{2}:)'
-credential_pattern='BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|Authorization:[[:space:]]*(Bearer|Basic)'
+private_key_pattern='BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY'
 content_marker_pattern='GT_PRIVATE_(USER_CONTENT|MODEL_CACHE|DIAGNOSTIC)|GLIDETRANSLATE_PRIVATE_CONTENT'
 email_pattern='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+[.][A-Za-z]{2,}'
 
@@ -76,6 +76,7 @@ is_allowed_email() {
   local lower_email lower_allowed allowed old_ifs
   lower_email="$(printf '%s' "$email" | /usr/bin/tr '[:upper:]' '[:lower:]')" || metadata_failure
   case "$lower_email" in *@users.noreply.github.com) return 0 ;; esac
+  case "$lower_email" in git@github.com) return 0 ;; esac
   old_ifs="$IFS"
   IFS=','
   for allowed in ${GT_PUBLIC_LOGIN_ALLOWLIST:-}; do
@@ -92,6 +93,24 @@ scan_status_for() {
   local rg_status=0
   LC_ALL=C rg -a -i -q -- "$pattern" "$scan_path" \
     2>> "$private_root/rg.private" || rg_status=$?
+  case "$rg_status" in 0) return 0 ;; 1) return 1 ;; *) printf '%s\n' UNVERIFIABLE_SURFACE_SCAN >&2; exit 2 ;; esac
+}
+
+scan_case_sensitive_status_for() {
+  local pattern="$1"
+  local scan_path="$2"
+  local rg_status=0
+  LC_ALL=C rg -a -q -- "$pattern" "$scan_path" \
+    2>> "$private_root/rg.private" || rg_status=$?
+  case "$rg_status" in 0) return 0 ;; 1) return 1 ;; *) printf '%s\n' UNVERIFIABLE_SURFACE_SCAN >&2; exit 2 ;; esac
+}
+
+scan_unmasked_credential_status_for() {
+  local scan_path="$1"
+  local rg_status=0
+  LC_ALL=C rg -a -i -q -P -- \
+    'Authorization:[[:space:]]*(Bearer|Basic)(?![[:space:]]+[*][*][*](?:[^*[:alnum:]]|$))' \
+    "$scan_path" 2>> "$private_root/rg.private" || rg_status=$?
   case "$rg_status" in 0) return 0 ;; 1) return 1 ;; *) printf '%s\n' UNVERIFIABLE_SURFACE_SCAN >&2; exit 2 ;; esac
 }
 
@@ -118,10 +137,13 @@ scan_email_status_for() {
 scan_categories() {
   local scan_target="$1"
   local relative_path="$2"
-  if scan_status_for "$absolute_pattern" "$scan_target"; then report PROHIBITED_ABSOLUTE_PATH "$relative_path"; fi
+  if scan_case_sensitive_status_for "$absolute_pattern" "$scan_target"; then report PROHIBITED_ABSOLUTE_PATH "$relative_path"; fi
   if scan_status_for "$agent_pattern" "$scan_target"; then report PROHIBITED_AGENT_SURFACE "$relative_path"; fi
   if scan_status_for "$private_endpoint_pattern" "$scan_target"; then report PROHIBITED_PRIVATE_ENDPOINT "$relative_path"; fi
-  if scan_status_for "$credential_pattern" "$scan_target"; then report PROHIBITED_CREDENTIAL_CONTENT "$relative_path"; fi
+  if scan_status_for "$private_key_pattern" "$scan_target" || \
+     scan_unmasked_credential_status_for "$scan_target"; then
+    report PROHIBITED_CREDENTIAL_CONTENT "$relative_path"
+  fi
   if scan_status_for "$content_marker_pattern" "$scan_target"; then report PROHIBITED_CONTENT_MARKER "$relative_path"; fi
   if scan_email_status_for "$scan_target"; then report PROHIBITED_PUBLIC_IDENTITY "$relative_path"; fi
 }
@@ -144,8 +166,13 @@ while IFS= read -r -d '' path; do
     *.p12|*.pfx|*.key|*.mobileprovision|*.provisionprofile)
       report PROHIBITED_CREDENTIAL_SURFACE "$relative_path"
       ;;
-    *.sqlite|*.sqlite-shm|*.sqlite-wal|*.db|*.log|*/runtime/*|runtime/*)
+    *.sqlite|*.sqlite-shm|*.sqlite-wal|*.db|*/runtime/*|runtime/*)
       report PROHIBITED_RUNTIME_SURFACE "$relative_path"
+      ;;
+    *.log)
+      if [[ ! "$lower_relative" =~ ^run-[0-9]+[.]log$ ]]; then
+        report PROHIBITED_RUNTIME_SURFACE "$relative_path"
+      fi
       ;;
     *.gguf|*.safetensors|*/models/*|models/*|*/model-cache/*|model-cache/*)
       report PROHIBITED_MODEL_SURFACE "$relative_path"

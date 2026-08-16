@@ -179,4 +179,14 @@ if [ -s "$signal_output" ]; then
   exit 1
 fi
 
+current_workflow="$workspace_root/.github/workflows/ci.yml"
+rg -Fq 'aggregate_log="$RUNNER_TEMP/glidetranslate-candidate-aggregate.private.log"' \
+  "$current_workflow"
+rg -Fq './script/test_all.sh > "$aggregate_log" 2>&1' "$current_workflow"
+rg -Fq '/bin/rm -P "$aggregate_log"' "$current_workflow"
+rg -Fq "printf '%s\\n' CANDIDATE_AGGREGATE_PASSED" "$current_workflow"
+test "$(rg -c 'shasum -a 256 -c - >[/]dev/null' "$current_workflow")" -eq 3
+! rg -q '^[[:space:]]*run:[[:space:]]+[.]/script/test_all[.]sh[[:space:]]*$' \
+  "$current_workflow"
+
 printf '%s\n' WORKFLOW_PIN_TESTS_PASS

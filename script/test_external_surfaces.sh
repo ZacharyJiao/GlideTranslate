@@ -20,9 +20,10 @@ test -x "$checker"
 
 accepted="$fixture_root/accepted"
 /bin/mkdir -p "$accepted"
-printf '%s\n' '{"login":"public-user","email":"12345+public@users.noreply.github.com","url":"https://api.github.com/example"}' > "$accepted/metadata.json"
+printf '%s\n' '{"login":"public-user","email":"12345+public@users.noreply.github.com","url":"https://api.github.com/users/public-user","ssh_url":"git@github.com:example/repository.git"}' > "$accepted/metadata.json"
 printf '%s\n' public > "$accepted/12345+public@users.noreply.github.com"
 printf '%s\n' public > "$accepted/maintainer@example.com"
+printf '%s\n' 'Authorization:'" Basic ***" > "$accepted/run-123.log"
 GT_PUBLIC_LOGIN_ALLOWLIST=maintainer@example.com "$checker" "$accepted"
 
 assert_rejected() {
@@ -50,6 +51,9 @@ assert_rejected private-endpoint PROHIBITED_PRIVATE_ENDPOINT \
 credential_marker='Authorization:'" Bearer synthetic-value"
 assert_rejected credential PROHIBITED_CREDENTIAL_CONTENT \
   "$credential_marker"
+private_key_marker='BEGIN PRI'"VATE KEY"
+assert_rejected private-key PROHIBITED_CREDENTIAL_CONTENT \
+  "$private_key_marker"
 assert_rejected content-marker PROHIBITED_CONTENT_MARKER \
   'GT_PRIVATE_USER_CONTENT'
 assert_rejected identity PROHIBITED_PUBLIC_IDENTITY \

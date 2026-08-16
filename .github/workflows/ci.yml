@@ -29,13 +29,13 @@ jobs:
           tool_root="$RUNNER_TEMP/glidetranslate-tools"
           mkdir -p "$tool_root/bin"
           curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_darwin_arm64.tar.gz -o "$tool_root/gitleaks.tar.gz"
-          echo 'b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5  '"$tool_root/gitleaks.tar.gz" | shasum -a 256 -c -
+          echo 'b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5  '"$tool_root/gitleaks.tar.gz" | shasum -a 256 -c - >/dev/null
           tar -xzf "$tool_root/gitleaks.tar.gz" -C "$tool_root/bin" gitleaks
           curl -fsSL https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_darwin_arm64.tar.gz -o "$tool_root/actionlint.tar.gz"
-          echo 'aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f  '"$tool_root/actionlint.tar.gz" | shasum -a 256 -c -
+          echo 'aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f  '"$tool_root/actionlint.tar.gz" | shasum -a 256 -c - >/dev/null
           tar -xzf "$tool_root/actionlint.tar.gz" -C "$tool_root/bin" actionlint
           curl -fsSL https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/ripgrep-15.1.0-aarch64-apple-darwin.tar.gz -o "$tool_root/ripgrep.tar.gz"
-          echo '378e973289176ca0c6054054ee7f631a065874a352bf43f0fa60ef079b6ba715  '"$tool_root/ripgrep.tar.gz" | shasum -a 256 -c -
+          echo '378e973289176ca0c6054054ee7f631a065874a352bf43f0fa60ef079b6ba715  '"$tool_root/ripgrep.tar.gz" | shasum -a 256 -c - >/dev/null
           tar -xzf "$tool_root/ripgrep.tar.gz" -C "$tool_root/bin" --strip-components=1 ripgrep-15.1.0-aarch64-apple-darwin/rg
           echo "$tool_root/bin" >> "$GITHUB_PATH"
           "$tool_root/bin/rg" --version | /usr/bin/grep -Eq '^ripgrep 15[.]1[.]0'
@@ -44,7 +44,30 @@ jobs:
       - name: Verify repository policy and build
         env:
           DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
-        run: ./script/test_all.sh
+        run: |
+          set -euo pipefail
+          aggregate_log="$RUNNER_TEMP/glidetranslate-candidate-aggregate.private.log"
+          cleanup_aggregate_log() {
+            prior_status=$?
+            trap - EXIT INT TERM HUP
+            cleanup_status=0
+            if [ -f "$aggregate_log" ]; then
+              /bin/rm -P "$aggregate_log" || cleanup_status=$?
+            fi
+            if [ "$prior_status" -ne 0 ]; then exit "$prior_status"; fi
+            exit "$cleanup_status"
+          }
+          trap cleanup_aggregate_log EXIT
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+          trap 'exit 129' HUP
+          aggregate_status=0
+          ./script/test_all.sh > "$aggregate_log" 2>&1 || aggregate_status=$?
+          if [ "$aggregate_status" -ne 0 ]; then
+            printf '%s\n' CANDIDATE_AGGREGATE_FAILED >&2
+            exit "$aggregate_status"
+          fi
+          printf '%s\n' CANDIDATE_AGGREGATE_PASSED
 
   dependency-review:
     if: github.event_name == 'pull_request'
