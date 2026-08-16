@@ -5,6 +5,12 @@ developer_dir="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 owned_candidate_parent=""
 candidate_cleanup_enabled=0
 
+record_stage() {
+  if [ -n "${GT_AGGREGATE_STAGE_FILE:-}" ]; then
+    printf '%s\n' "$1" > "$GT_AGGREGATE_STAGE_FILE"
+  fi
+}
+
 cleanup_candidate() {
   if [ "$candidate_cleanup_enabled" -eq 1 ] && \
      [ -n "$owned_candidate_parent" ]; then
@@ -47,20 +53,34 @@ else
     "$candidate_root" "$source_root"
 fi
 
+record_stage PUBLIC_TREE
 "$candidate_root/script/check_public_tree.sh" "$candidate_root"
+record_stage WORKFLOW_PINS
 "$candidate_root/script/check_workflow_pins.sh" "$candidate_root"
+record_stage LOCALIZATIONS
 "$candidate_root/script/check_localizations.sh" "$candidate_root"
+record_stage COMPATIBILITY_REPORT_TESTS
 "$candidate_root/script/test_compatibility_report.sh"
+record_stage COMPATIBILITY_REPORT
 "$candidate_root/script/check_compatibility_report.sh" \
   "$candidate_root/docs/compatibility.md"
+record_stage LOCAL_OLLAMA_PREFLIGHT_TESTS
 "$candidate_root/script/test_local_ollama_preflight.sh"
+record_stage RELEASE_PAYLOAD_INSPECTION_TESTS
 "$candidate_root/script/test_release_payload_inspection.sh"
+record_stage ADHOC_RELEASE_PACKAGING_TESTS
 "$candidate_root/script/test_adhoc_release_packaging.sh"
+record_stage BOUNDED_DOWNLOAD_TESTS
 "$candidate_root/script/test_download_bounded_asset.sh"
+record_stage SAFE_EXTRACTION_TESTS
 "$candidate_root/script/test_safe_extract_asset.sh"
+record_stage EXTERNAL_SURFACE_TESTS
 "$candidate_root/script/test_external_surfaces.sh"
+record_stage ACTIONLINT
 actionlint "$candidate_root/.github/workflows/ci.yml"
+record_stage SWIFTPM_TESTS
 DEVELOPER_DIR="$developer_dir" swift test --package-path "$candidate_root"
+record_stage XCODE_TESTS
 DEVELOPER_DIR="$developer_dir" xcodebuild \
   -project "$candidate_root/GlideTranslate.xcodeproj" \
   -scheme GlideTranslate \
@@ -71,6 +91,7 @@ DEVELOPER_DIR="$developer_dir" xcodebuild \
   SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
   GCC_TREAT_WARNINGS_AS_ERRORS=YES \
   test
+record_stage XCODE_RELEASE_BUILD
 DEVELOPER_DIR="$developer_dir" xcodebuild \
   -project "$candidate_root/GlideTranslate.xcodeproj" \
   -scheme GlideTranslate \
@@ -81,3 +102,4 @@ DEVELOPER_DIR="$developer_dir" xcodebuild \
   SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
   GCC_TREAT_WARNINGS_AS_ERRORS=YES \
   build
+record_stage COMPLETE

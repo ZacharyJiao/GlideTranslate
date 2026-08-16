@@ -47,12 +47,16 @@ jobs:
         run: |
           set -euo pipefail
           aggregate_log="$RUNNER_TEMP/glidetranslate-candidate-aggregate.private.log"
+          aggregate_stage="$RUNNER_TEMP/glidetranslate-candidate-aggregate.stage"
           cleanup_aggregate_log() {
             prior_status=$?
             trap - EXIT INT TERM HUP
             cleanup_status=0
             if [ -f "$aggregate_log" ]; then
               /bin/rm -P "$aggregate_log" || cleanup_status=$?
+            fi
+            if [ -f "$aggregate_stage" ]; then
+              /bin/rm -P "$aggregate_stage" || cleanup_status=$?
             fi
             if [ "$prior_status" -ne 0 ]; then exit "$prior_status"; fi
             exit "$cleanup_status"
@@ -62,9 +66,19 @@ jobs:
           trap 'exit 143' TERM
           trap 'exit 129' HUP
           aggregate_status=0
-          ./script/test_all.sh > "$aggregate_log" 2>&1 || aggregate_status=$?
+          GT_AGGREGATE_STAGE_FILE="$aggregate_stage" \
+            ./script/test_all.sh > "$aggregate_log" 2>&1 || aggregate_status=$?
           if [ "$aggregate_status" -ne 0 ]; then
-            printf '%s\n' CANDIDATE_AGGREGATE_FAILED >&2
+            failed_stage=UNKNOWN
+            if [ -s "$aggregate_stage" ]; then
+              candidate_stage="$(/bin/cat "$aggregate_stage")"
+              case "$candidate_stage" in
+                PUBLIC_TREE|WORKFLOW_PINS|LOCALIZATIONS|COMPATIBILITY_REPORT_TESTS|COMPATIBILITY_REPORT|LOCAL_OLLAMA_PREFLIGHT_TESTS|RELEASE_PAYLOAD_INSPECTION_TESTS|ADHOC_RELEASE_PACKAGING_TESTS|BOUNDED_DOWNLOAD_TESTS|SAFE_EXTRACTION_TESTS|EXTERNAL_SURFACE_TESTS|ACTIONLINT|SWIFTPM_TESTS|XCODE_TESTS|XCODE_RELEASE_BUILD)
+                  failed_stage="$candidate_stage"
+                  ;;
+              esac
+            fi
+            printf 'CANDIDATE_AGGREGATE_FAILED:%s\n' "$failed_stage" >&2
             exit "$aggregate_status"
           fi
           printf '%s\n' CANDIDATE_AGGREGATE_PASSED
