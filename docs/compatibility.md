@@ -25,9 +25,10 @@ evidence.
 | Terminal | com.apple.Terminal | 2.15 | BLOCKED_TESTER_EXECUTION_REQUIRED | BLOCKED_TESTER_EXECUTION_REQUIRED | BLOCKED_TESTER_EXECUTION_REQUIRED | BLOCKED_TESTER_EXECUTION_REQUIRED | BLOCKED_TESTER_EXECUTION_REQUIRED | BLOCKED_TESTER_EXECUTION_REQUIRED | BLOCKED_TESTER_EXECUTION_REQUIRED | Blocked | Fresh-window synthetic protocol requires an interactive tester session. |
 | Preview | com.apple.Preview | 11.0 | BLOCKED_TESTER_EXECUTION_REQUIRED | BLOCKED_TESTER_EXECUTION_REQUIRED | BLOCKED_TESTER_EXECUTION_REQUIRED | BLOCKED_TESTER_EXECUTION_REQUIRED | BLOCKED_TESTER_EXECUTION_REQUIRED | BLOCKED_TESTER_EXECUTION_REQUIRED | BLOCKED_TESTER_EXECUTION_REQUIRED | Blocked | Disposable PDF protocol requires an interactive tester session. |
 
-The second-display, non-default-scaling, Light, Dark, keyboard-only,
-VoiceOver, and Reduce Motion rows are also blocked pending interactive tester
-execution. No multi-display or accessibility compatibility claim is made.
+Controller-owned Light, Dark, keyboard-only, and real-system Reduce Motion
+checks passed on 2026-08-16 using synthetic UI fixtures. VoiceOver and the
+physical second-display/non-default-scaling protocol remain blocked pending
+tester execution. No multi-display or VoiceOver compatibility claim is made.
 
 The compatibility classifications are limited to `Full`, `Text-only`,
 `Manual-input`, `Shortcut-clipboard`, `Rejected`, and `Blocked`. Automated

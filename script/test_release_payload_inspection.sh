@@ -68,6 +68,33 @@ GT_APPROVED_BUNDLE_ID=com.zaryolabs.GlideTranslate \
 rg -q '^PAYLOAD_INSPECTION:PASS$' \
   "$fixture_root/extracted-output/inspection.txt"
 
+signed_extracted="$fixture_root/signed-extracted"
+/bin/cp -R "$extracted" "$signed_extracted"
+/usr/bin/codesign --force --deep --sign - --options runtime \
+  "$signed_extracted/GlideTranslate.app" >/dev/null 2>&1
+GT_APPROVED_BUNDLE_ID=com.zaryolabs.GlideTranslate \
+  "$inspector" "$signed_extracted" "$fixture_root/signed-extracted-output"
+rg -q '^PAYLOAD_INSPECTION:PASS$' \
+  "$fixture_root/signed-extracted-output/inspection.txt"
+
+signed_extra="$fixture_root/signed-extra"
+/bin/cp -R "$signed_extracted" "$signed_extra"
+printf '%s\n' unexpected \
+  > "$signed_extra/GlideTranslate.app/Contents/_CodeSignature/Unexpected"
+assert_rejected signed-extra UNEXPECTED_PAYLOAD_PATH "$signed_extra"
+
+extracted_empty_directory="$fixture_root/extracted-empty-directory"
+/bin/cp -R "$extracted" "$extracted_empty_directory"
+/bin/mkdir \
+  "$extracted_empty_directory/GlideTranslate.app/Contents/Unexpected"
+assert_rejected extracted-empty-directory UNEXPECTED_PAYLOAD_PATH \
+  "$extracted_empty_directory"
+
+archive_empty_directory="$(make_archive archive-empty-directory)"
+/bin/mkdir "$archive_empty_directory/Unexpected"
+assert_rejected archive-empty-directory UNEXPECTED_PAYLOAD_PATH \
+  "$archive_empty_directory"
+
 extracted_extra="$fixture_root/extracted-extra"
 /bin/cp -R "$extracted" "$extracted_extra"
 printf '%s\n' unrelated > "$extracted_extra/GlideTranslate.app/Contents/Resources/extra.txt"

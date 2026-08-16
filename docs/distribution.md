@@ -1,27 +1,57 @@
 # Distribution
 
-The currently verified distribution path is build from source. On 2026-08-15,
-an unsigned arm64 Release archive was built with warnings treated as errors and
-its bundle identity, macOS 14.0 minimum, accessory-app behavior, architecture,
-system-only linkage, file types, paths, and payload categories were inspected.
-This is local implementation evidence, not a distributable binary.
+When `v0.1.0` is published on GitHub Releases, its downloadable MVP is an
+Apple-silicon application for macOS 14 or later. Its ad hoc signature provides
+bundle-integrity verification only. The application has no Apple-trusted
+Developer ID signature, notarization ticket, App Store receipt, automatic
+update feed, Intel validation, or Universal 2 claim. Gatekeeper is therefore
+expected to reject an ordinary double-click on first launch.
 
-No downloadable binary, signed archive, notarized package, installer, update
-feed, or release URL is claimed available. The inspected unsigned archive is
-not proposed for distribution.
+## Download and verify
 
-Use [Building](building.md) for unsigned local Debug builds. Those commands do
-not require or select a signing identity and do not produce a release artifact.
+If that release is present, download both files for the same version from
+[GitHub Releases](https://github.com/ZacharyJiao/GlideTranslate/releases):
 
-A future binary can be described as available only after all of the following
-are separately authorized and verified against one immutable candidate:
+- `GlideTranslate-0.1.0-macos-arm64.zip`
+- `GlideTranslate-0.1.0-macos-arm64.zip.sha256`
 
-- repository and remote CI state;
-- Release archive contents and architecture;
-- signing identity, entitlements, and hardened-runtime result;
-- notarization and stapling result;
-- installation and launch of the exact packaged artifact; and
-- publication of the exact verified artifact and checksums.
+Place them in the same directory, then verify the downloaded bytes:
 
-Source-build success, a local Release build, or a passing automated test suite
-does not by itself satisfy those distribution gates.
+```bash
+cd /path/to/download-directory
+/usr/bin/shasum -a 256 -c GlideTranslate-0.1.0-macos-arm64.zip.sha256
+```
+
+The command must report `OK`. Do not open the application when the checksum
+fails.
+
+## Install and open
+
+1. Extract the ZIP in Finder.
+2. Move `GlideTranslate.app` to Applications if desired.
+3. For the first launch, hold Control while clicking the app, choose **Open**,
+   review the macOS warning, and choose **Open** again.
+4. If selection translation is needed, follow the app's link to System Settings
+   and grant Accessibility permission to this exact app copy. Manual input does
+   not require Accessibility permission.
+
+Do not disable Gatekeeper, use `xattr` to remove quarantine, or weaken system
+security. If macOS does not offer the Finder Open action, use the source-build
+path in [Building](building.md) instead.
+
+## Verify the extracted bundle
+
+These optional checks confirm architecture and ad hoc integrity; they do not
+create Apple trust:
+
+```bash
+/usr/bin/lipo -archs \
+  /Applications/GlideTranslate.app/Contents/MacOS/GlideTranslate
+/usr/bin/codesign --verify --deep --strict \
+  /Applications/GlideTranslate.app
+```
+
+The architecture output must be `arm64`, and `codesign` must exit successfully.
+An expected Gatekeeper rejection is not evidence of corruption when the ZIP
+checksum and ad hoc signature both pass; it reflects the deliberately absent
+Developer ID and notarization.

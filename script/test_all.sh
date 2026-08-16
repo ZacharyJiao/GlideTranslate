@@ -55,6 +55,7 @@ fi
   "$candidate_root/docs/compatibility.md"
 "$candidate_root/script/test_local_ollama_preflight.sh"
 "$candidate_root/script/test_release_payload_inspection.sh"
+"$candidate_root/script/test_adhoc_release_packaging.sh"
 "$candidate_root/script/test_download_bounded_asset.sh"
 "$candidate_root/script/test_safe_extract_asset.sh"
 "$candidate_root/script/test_external_surfaces.sh"

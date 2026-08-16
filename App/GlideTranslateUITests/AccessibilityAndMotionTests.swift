@@ -46,7 +46,24 @@ final class AccessibilityAndMotionTests: XCTestCase {
     }
 
     @MainActor
-    private func launch(motionArgument: String) throws -> XCUIApplication {
+    func testSystemReducedMotionCharacterization() throws {
+        guard NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            throw XCTSkip(
+                "PLANNED_SKIP: controller enables the system Reduce Motion setting"
+            )
+        }
+
+        let app = try launch(motionArgument: nil)
+        defer { app.terminate() }
+        showPanel()
+
+        XCTAssertTrue(app.descendants(matching: .any)["result-motion-reduced"]
+            .waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["result-output"].exists)
+    }
+
+    @MainActor
+    private func launch(motionArgument: String?) throws -> XCUIApplication {
         continueAfterFailure = false
         let passivePanelReadyProbe = DistributedNotificationProbe(
             name: FocusFixtureController.passivePanelReadySignal
@@ -55,8 +72,10 @@ final class AccessibilityAndMotionTests: XCTestCase {
         app.launchArguments = [
             "--ui-testing",
             "--ui-testing-passive-panel",
-            motionArgument,
         ]
+        if let motionArgument {
+            app.launchArguments.append(motionArgument)
+        }
         app.launch()
         guard app.wait(for: .runningBackground, timeout: 5) else {
             app.terminate()

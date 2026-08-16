@@ -15,7 +15,8 @@ snapshot, runs:
 1. public-tree policy and one structured Gitleaks scan;
 2. immutable workflow-reference, localization, and compatibility-report checks;
 3. a synthetic bounded local-provider preflight harness;
-4. synthetic release-archive and payload-inspection fixtures;
+4. synthetic release-archive, ad hoc packaging, and signed-payload inspection
+   fixtures;
 5. synthetic bounded-download, safe-extraction, and external-surface fixtures;
 6. Actionlint;
 7. all SwiftPM tests;
@@ -31,6 +32,13 @@ The candidate-owner harness is verified separately:
 It covers path normalization, symlink refusal, deterministic modes, caller
 ownership, cleanup failure, and INT/TERM/HUP behavior.
 
+On 2026-08-16, the controller also ran the panel accessibility/motion and
+keyboard-navigation UI suites under both Light and Dark system appearances.
+The five focused tests passed in each appearance. A separate controller-only
+characterization enabled the real macOS Reduce Motion setting, launched the
+panel without a motion override, observed the reduced-motion branch, and
+passed before the setting was restored.
+
 ## Local provider preflight evidence
 
 On 2026-08-15, a read-only preflight found Ollama 0.32.9 available with the
@@ -39,10 +47,13 @@ verified timeout, response-limit, HTTP-status, invalid-response, unavailable,
 cleanup, and signal categories without publishing a model name, service
 address, response body, or raw diagnostic.
 
-This is preflight evidence only. The required shortcut-to-Accessibility-
-capture, native stream, passive panel, explicit Copy, and history-off flow has
-not been run because it requires current explicit tester opt-in. No real local
-end-to-end or release-readiness claim is made.
+On 2026-08-16, the required synthetic shortcut-to-Accessibility-capture,
+native-stream, passive-panel, explicit-Copy, and history-off path passed with a
+locally installed model. The evidence records only categorical outcomes; the
+model, endpoint, selected text, prompt, result, and clipboard content are not
+published. Transient phase sampling was not independently complete, so the
+claim is limited to the observed end-to-end outcome rather than every internal
+state transition.
 
 ## Manual compatibility evidence
 
@@ -53,17 +64,17 @@ another BLOCKED category is not a PASS.
 
 ## Remote and release evidence
 
-Remote CI evidence requires a separately authorized repository and is not
-claimed by local checks. A local unsigned arm64 archive and its payload were
-inspected on 2026-08-15, but signing, notarization, Gatekeeper, installed-
-artifact, and public-release evidence remain separate authorization gates; see
-[Distribution](distribution.md).
+Remote and Release evidence is valid only when GitHub identifies the exact
+commit, checks, tag, asset size, and asset hash. Local checks do not substitute
+for that evidence. The downloadable MVP uses an ad hoc signature and is
+expected to fail Apple trust assessment because Developer ID and notarization
+are intentionally absent; exact downloaded-artifact launch remains a separate
+Finder/tester row. See [Distribution](distribution.md).
 
-The external-surface fixtures verify local scanning, bounded binary writes,
-and archive rejection/extraction behavior. They do not inspect repository
-history, pull requests, comments, Actions logs or artifacts, releases, or
-assets. Those real surfaces remain unverified until an exact repository is in
-scope.
+The external-surface fixtures verify local scanning, bounded binary writes, and
+archive rejection/extraction behavior. Real repository history, pull requests,
+comments, Actions logs/artifacts, releases, and assets require a separate live
+enumeration; a fixture PASS is never reported as a live-surface PASS.
 
 Reports publish only sanitized categories, versions, architecture/OS major,
 gate names, status, and duration. Raw logs, local paths, device/user names,

@@ -31,11 +31,15 @@ report() {
 paths_nul="$output/paths.nul.private"
 files_nul="$output/files.nul.private"
 links_nul="$output/links.nul.private"
+directories_nul="$output/directories.nul.private"
 if ! /usr/bin/find "$input" -mindepth 1 -print0 > "$paths_nul" \
      2> "$output/find.private" ||
    ! /usr/bin/find "$input" -type f -print0 > "$files_nul" \
      2>> "$output/find.private" ||
    ! /usr/bin/find "$input" -type l -print0 > "$links_nul" \
+     2>> "$output/find.private" ||
+   ! /usr/bin/find "$input" -mindepth 1 -type d -print0 \
+     > "$directories_nul" \
      2>> "$output/find.private"; then
   printf '%s\n' UNVERIFIABLE_ARCHIVE_INVENTORY >&2
   exit 2
@@ -57,6 +61,7 @@ validate_nul() {
 validate_nul "$paths_nul"
 validate_nul "$files_nul"
 validate_nul "$links_nul"
+validate_nul "$directories_nul"
 
 archive_app="$input/Products/Applications/GlideTranslate.app"
 extracted_app="$input/GlideTranslate.app"
@@ -73,6 +78,49 @@ else
   printf '%s\n' ARCHIVE_APP_MISSING >&2
   exit 1
 fi
+
+while IFS= read -r -d '' path; do
+  relative_path="${path#"$input"/}"
+  case "$relative_path" in
+    *[[:cntrl:]]*) printf '%s\n' PROHIBITED_PATH_ENCODING >&2; exit 1 ;;
+  esac
+  directory_allowed=0
+  if [ "$payload_layout" = archive ]; then
+    case "$relative_path" in
+      Products|\
+      Products/Applications|\
+      Products/Applications/GlideTranslate.app|\
+      Products/Applications/GlideTranslate.app/Contents|\
+      Products/Applications/GlideTranslate.app/Contents/MacOS|\
+      Products/Applications/GlideTranslate.app/Contents/Resources|\
+      Products/Applications/GlideTranslate.app/Contents/Resources/en.lproj|\
+      Products/Applications/GlideTranslate.app/Contents/Resources/zh-Hans.lproj|\
+      dSYMs|\
+      dSYMs/GlideTranslate.app.dSYM|\
+      dSYMs/GlideTranslate.app.dSYM/Contents|\
+      dSYMs/GlideTranslate.app.dSYM/Contents/Resources|\
+      dSYMs/GlideTranslate.app.dSYM/Contents/Resources/DWARF|\
+      dSYMs/GlideTranslate.app.dSYM/Contents/Resources/Relocations|\
+      dSYMs/GlideTranslate.app.dSYM/Contents/Resources/Relocations/*)
+        directory_allowed=1 ;;
+    esac
+  else
+    case "$relative_path" in
+      GlideTranslate.app|\
+      GlideTranslate.app/Contents|\
+      GlideTranslate.app/Contents/MacOS|\
+      GlideTranslate.app/Contents/_CodeSignature|\
+      GlideTranslate.app/Contents/Resources|\
+      GlideTranslate.app/Contents/Resources/en.lproj|\
+      GlideTranslate.app/Contents/Resources/zh-Hans.lproj)
+        directory_allowed=1 ;;
+    esac
+  fi
+  if [ "$directory_allowed" -ne 1 ]; then
+    report UNEXPECTED_PAYLOAD_PATH "$relative_path"
+  fi
+done < "$directories_nul"
+
 plist_errors="$output/plist-inspection.private"
 if ! bundle_identifier="$(/usr/libexec/PlistBuddy \
        -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist" \
@@ -211,6 +259,7 @@ while IFS= read -r -d '' path; do
       GlideTranslate.app/Contents/Info.plist|\
       GlideTranslate.app/Contents/PkgInfo|\
       GlideTranslate.app/Contents/MacOS/GlideTranslate|\
+      GlideTranslate.app/Contents/_CodeSignature/CodeResources|\
       GlideTranslate.app/Contents/Resources/en.lproj/InfoPlist.strings|\
       GlideTranslate.app/Contents/Resources/en.lproj/Localizable.strings|\
       GlideTranslate.app/Contents/Resources/zh-Hans.lproj/InfoPlist.strings|\

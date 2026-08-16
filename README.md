@@ -23,10 +23,24 @@ supports explicitly configured OpenAI-compatible providers.
 See [Privacy](PRIVACY.md) for the complete data-flow description and
 [Compatibility](docs/compatibility.md) for application-specific limitations.
 
+## Download the MVP
+
+The [GitHub Releases](https://github.com/ZacharyJiao/GlideTranslate/releases)
+page provides the Apple-silicon MVP when a release is published. The download
+is for macOS 14 or later and is ad hoc signed for bundle-integrity checks. It is
+**not** Developer ID signed, notarized, distributed through the App Store, or
+verified for Intel Macs.
+
+Download both the ZIP and its `.sha256` file, verify the checksum, extract the
+ZIP, then use **Control-click → Open** in Finder for the first launch. Do not
+disable Gatekeeper or remove quarantine attributes. See
+[Distribution](docs/distribution.md) for exact verification and installation
+steps.
+
 ## Build from source
 
-The verified public path is currently a source build with full Xcode. No
-signed or notarized binary is claimed available.
+Building from source with full Xcode remains available and does not require a
+Developer ID identity.
 
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test

@@ -2,15 +2,16 @@
 
 ## Supported versions
 
-Security fixes are intended for the latest published version only. There is no
-published binary release at present; the current verified distribution path is
-source build as described in [Distribution](docs/distribution.md).
+Security fixes are intended for the latest published version only. When a
+downloadable MVP is present on GitHub Releases, it is ad hoc signed and not
+Developer ID signed or notarized. The source-build alternative and exact trust
+limitations are described in [Distribution](docs/distribution.md).
 
 ## Reporting a vulnerability
 
-GitHub private vulnerability reporting will be the private reporting channel
-only after an authorized repository exists and that setting is explicitly
-enabled. It is not currently claimed active.
+GitHub private vulnerability reporting is a reporting channel only when the
+repository Security page visibly shows that feature as enabled. This document
+does not claim the setting is active.
 
 Until that channel is confirmed, do not place credentials, selected text,
 provider details, local paths, diagnostics, or exploit material in a public
