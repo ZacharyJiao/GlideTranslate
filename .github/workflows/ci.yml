@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  policy-and-test:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Record hosted image and toolchain
+        run: |
+          set -euo pipefail
+          printf 'ImageOS=%s\nImageVersion=%s\n' "$ImageOS" "$ImageVersion"
+          test "$(uname -m)" = arm64
+          DEVELOPER_DIR=/Applications/Xcode_26.6.app/Contents/Developer xcodebuild -version
+          DEVELOPER_DIR=/Applications/Xcode_26.6.app/Contents/Developer xcrun --sdk macosx --show-sdk-version
+      - name: Install pinned audit tools
+        run: |
+          set -euo pipefail
+          tool_root="$RUNNER_TEMP/glidetranslate-tools"
+          mkdir -p "$tool_root/bin"
+          curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_darwin_arm64.tar.gz -o "$tool_root/gitleaks.tar.gz"
+          echo 'b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5  '"$tool_root/gitleaks.tar.gz" | shasum -a 256 -c -
+          tar -xzf "$tool_root/gitleaks.tar.gz" -C "$tool_root/bin" gitleaks
+          curl -fsSL https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_darwin_arm64.tar.gz -o "$tool_root/actionlint.tar.gz"
+          echo 'aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f  '"$tool_root/actionlint.tar.gz" | shasum -a 256 -c -
+          tar -xzf "$tool_root/actionlint.tar.gz" -C "$tool_root/bin" actionlint
+          echo "$tool_root/bin" >> "$GITHUB_PATH"
+          "$tool_root/bin/actionlint" --version | rg -q '1[.]7[.]12'
+          "$tool_root/bin/gitleaks" version | rg -q '8[.]30[.]1'
+      - name: Verify repository policy and build
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+        run: ./script/test_all.sh
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: macos-26
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294

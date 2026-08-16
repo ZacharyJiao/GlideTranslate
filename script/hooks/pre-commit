@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+staged_metadata_root="$(mktemp -d)"
+if ! repository="$(git rev-parse --show-toplevel 2> "$staged_metadata_root/rev-parse.private")"; then
+  /bin/rm -rf "$staged_metadata_root"
+  printf '%s\n' STAGED_REPOSITORY_RESOLUTION_FAILED >&2
+  exit 2
+fi
+staged_root="$(mktemp -d)"
+staged_index="$staged_metadata_root/index.nul"
+tracked_paths="$staged_metadata_root/tracked.nul"
+changed_paths="$staged_metadata_root/changed.nul"
+trap '/bin/rm -rf "$staged_root" "$staged_metadata_root"' EXIT
+git ls-files --stage -z > "$staged_index" 2> "$staged_metadata_root/index.private" || { printf '%s\n' STAGED_ENUMERATION_FAILED >&2; exit 2; }
+git ls-files -z > "$tracked_paths" 2> "$staged_metadata_root/tracked.private" || { printf '%s\n' STAGED_ENUMERATION_FAILED >&2; exit 2; }
+git diff --cached --name-only --diff-filter=ACMR -z > "$changed_paths" 2> "$staged_metadata_root/changed.private" || { printf '%s\n' STAGED_ENUMERATION_FAILED >&2; exit 2; }
+for stream in "$staged_index" "$tracked_paths" "$changed_paths"; do
+  if [ -s "$stream" ] && ! final_byte="$(/usr/bin/tail -c 1 "$stream" 2>> "$staged_metadata_root/helpers.private" | /usr/bin/od -An -tu1 2>> "$staged_metadata_root/helpers.private" | /usr/bin/tr -d '[:space:]' 2>> "$staged_metadata_root/helpers.private")"; then
+    printf '%s\n' STAGED_ENUMERATION_FAILED >&2; exit 2
+  fi
+  if [ -s "$stream" ] && [ "$final_byte" != 0 ]; then
+    printf '%s\n' STAGED_ENUMERATION_FAILED >&2; exit 2
+  fi
+done
+while IFS= read -r -d '' staged_entry; do
+  staged_metadata="${staged_entry%%$'\t'*}"
+  relative_path="${staged_entry#*$'\t'}"
+  staged_mode="${staged_metadata%% *}"
+  if [[ ! "$staged_metadata" =~ ^(100644|100755|120000|160000)[[:space:]][0-9a-f]{40}[[:space:]][0-3]$ ]] || [ "$relative_path" = "$staged_entry" ]; then
+    printf '%s\n' STAGED_ENUMERATION_FAILED >&2; exit 2
+  fi
+  case "$relative_path" in ''|/*|.|..|./*|../*|*/./*|*/../*|*[[:cntrl:]]*) printf '%s\n' PROHIBITED_STAGED_PATH_ENCODING >&2; exit 1;; esac
+  case "$staged_mode" in 100644|100755) ;; *) printf '%s\n' PROHIBITED_STAGED_FILE_MODE >&2; exit 1;; esac
+done < "$staged_index"
+while IFS= read -r -d '' relative_path; do
+  case "$relative_path" in ''|/*|.|..|./*|../*|*/./*|*/../*|*[[:cntrl:]]*) printf '%s\n' PROHIBITED_STAGED_PATH_ENCODING >&2; exit 1;; esac
+done < "$tracked_paths"
+while IFS= read -r -d '' relative_path; do
+  case "$relative_path" in ''|/*|.|..|./*|../*|*/./*|*/../*|*[[:cntrl:]]*) printf '%s\n' PROHIBITED_STAGED_PATH_ENCODING >&2; exit 1;; esac
+  case "$relative_path" in docs/superpowers/*|.codex/*|.superpowers/*|*/xcuserdata/*) printf 'PROHIBITED_STAGED_PATH:%s\n' "$relative_path" >&2; exit 1;; esac
+  destination="$staged_root/$relative_path"
+  /bin/mkdir -p "$(dirname "$destination")"
+  git show ":$relative_path" > "$destination" 2>> "$staged_metadata_root/show.private" || { printf '%s\n' STAGED_OBJECT_READ_FAILED >&2; exit 2; }
+done < "$changed_paths"
+"$repository/script/check_public_tree.sh" "$staged_root"
+gitleaks_report="$staged_metadata_root/gitleaks.json"
+gitleaks protect --staged --no-banner --redact --exit-code 0 \
+  --report-format json --report-path "$gitleaks_report" \
+  >/dev/null 2> "$staged_metadata_root/gitleaks.private" || {
+  printf '%s\n' STAGED_GITLEAKS_FAILED >&2; exit 2;
+}
+if ! jq -s -e 'length == 1 and (.[0] | type == "array")' "$gitleaks_report" >/dev/null 2> "$staged_metadata_root/gitleaks-jq.private"; then
+  printf '%s\n' STAGED_GITLEAKS_FAILED >&2; exit 2
+fi
+if ! jq -s -e '.[0] | length == 0' "$gitleaks_report" >/dev/null 2>> "$staged_metadata_root/gitleaks-jq.private"; then
+  printf '%s\n' STAGED_GITLEAKS_FINDING >&2; exit 1
+fi

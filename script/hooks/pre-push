@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+zero=0000000000000000000000000000000000000000
+prepush_root="$(mktemp -d)"
+if ! repository="$(git rev-parse --show-toplevel 2> "$prepush_root/rev-parse.private")"; then
+  /bin/rm -rf "$prepush_root"
+  printf '%s\n' PUSH_REPOSITORY_RESOLUTION_FAILED >&2
+  exit 2
+fi
+range_index=0
+trap '/bin/rm -rf "$prepush_root"' EXIT
+while read -r local_ref local_sha remote_ref remote_sha; do
+  test -n "$local_ref" || continue
+  [ "$local_sha" = "$zero" ] && continue
+  if [ "$remote_sha" = "$zero" ]; then range="$local_sha"; else range="$remote_sha..$local_sha"; fi
+  range_index=$((range_index + 1))
+  range_metadata="$prepush_root/range-$range_index"
+  git -C "$repository" log --format='%H%x09%aE%x09%cE%x09%s' "$range" > "$range_metadata" 2> "$prepush_root/range-$range_index.private" || { printf '%s\n' PUSH_RANGE_ENUMERATION_FAILED >&2; exit 2; }
+  if ! /usr/bin/awk -F '\t' '$2 !~ /@users[.]noreply[.]github[.]com$/ || $3 !~ /@users[.]noreply[.]github[.]com$/ {print "UNSAFE_COMMIT_IDENTITY:" $1 > "/dev/stderr"; bad=1} /\/Users\/|\/home\// {print "UNSAFE_COMMIT_MESSAGE:" $1 > "/dev/stderr"; bad=1} END {exit bad}' "$range_metadata"; then exit 1; fi
+done
+"$repository/script/check_history.sh"
+GT_CANDIDATE_SOURCE_ROOT="$repository" "$repository/script/test_all.sh"

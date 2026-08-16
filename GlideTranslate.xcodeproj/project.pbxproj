@@ -1,0 +1,153 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A20000000000000000000006 /* SharedSupport in Frameworks */ = {isa = PBXBuildFile; productRef = A90000000000000000000001 /* SharedSupport */; };
+		A20000000000000000000007 /* SelectionCapture in Frameworks */ = {isa = PBXBuildFile; productRef = A90000000000000000000002 /* SelectionCapture */; };
+		A20000000000000000000008 /* PrivacyStorage in Frameworks */ = {isa = PBXBuildFile; productRef = A90000000000000000000003 /* PrivacyStorage */; };
+		A20000000000000000000009 /* ModelProviders in Frameworks */ = {isa = PBXBuildFile; productRef = A90000000000000000000004 /* ModelProviders */; };
+		A2000000000000000000000A /* TranslationCore in Frameworks */ = {isa = PBXBuildFile; productRef = A90000000000000000000005 /* TranslationCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A40000000000000000000001 = {isa = PBXContainerItemProxy; containerPortal = A50000000000000000000001 /* Project object */; proxyType = 1; remoteGlobalIDString = A10000000000000000000001; remoteInfo = GlideTranslate; };
+		A40000000000000000000002 = {isa = PBXContainerItemProxy; containerPortal = A50000000000000000000001 /* Project object */; proxyType = 1; remoteGlobalIDString = A10000000000000000000001; remoteInfo = GlideTranslate; };
+		A40000000000000000000003 = {isa = PBXContainerItemProxy; containerPortal = A50000000000000000000001 /* Project object */; proxyType = 1; remoteGlobalIDString = A10000000000000000000004; remoteInfo = FocusFixtureApp; };
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A30000000000000000000008 /* GlideTranslate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GlideTranslate.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A30000000000000000000009 /* GlideTranslateTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GlideTranslateTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A3000000000000000000000A /* GlideTranslateUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GlideTranslateUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A3000000000000000000000B /* FocusFixtureApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FocusFixtureApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A80000000000000000000001 /* Exceptions for "GlideTranslate" folder in "GlideTranslate" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				GlideTranslate.entitlements,
+				Info.plist,
+			);
+			target = A10000000000000000000001 /* GlideTranslate */;
+		};
+		A80000000000000000000002 /* Exceptions for fixture app source in "GlideTranslateUITests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Fixtures/FocusFixtureApp/FixtureAppSource/FocusFixtureApp.swift,
+			);
+			target = A10000000000000000000003 /* GlideTranslateUITests */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		A70000000000000000000002 /* GlideTranslate */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A80000000000000000000001 /* Exceptions for "GlideTranslate" folder in "GlideTranslate" target */,
+			);
+			path = App/GlideTranslate;
+			sourceTree = SOURCE_ROOT;
+		};
+		A70000000000000000000003 /* GlideTranslateTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = App/GlideTranslateTests;
+			sourceTree = SOURCE_ROOT;
+		};
+		A70000000000000000000004 /* GlideTranslateUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A80000000000000000000002 /* Exceptions for fixture app source in "GlideTranslateUITests" target */,
+			);
+			path = App/GlideTranslateUITests;
+			sourceTree = SOURCE_ROOT;
+		};
+		A70000000000000000000006 /* FocusFixtureApp */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = App/GlideTranslateUITests/Fixtures/FocusFixtureApp/FixtureAppSource;
+			sourceTree = SOURCE_ROOT;
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A60000000000000000000001 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A20000000000000000000006, A20000000000000000000007, A20000000000000000000008, A20000000000000000000009, A2000000000000000000000A); runOnlyForDeploymentPostprocessing = 0; };
+		A60000000000000000000002 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A60000000000000000000003 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A60000000000000000000004 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A70000000000000000000001 = {isa = PBXGroup; children = (A70000000000000000000002, A70000000000000000000003, A70000000000000000000004, A70000000000000000000006, A70000000000000000000005); sourceTree = "<group>"; };
+		A70000000000000000000005 /* Products */ = {isa = PBXGroup; children = (A30000000000000000000008, A30000000000000000000009, A3000000000000000000000A, A3000000000000000000000B); name = Products; sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000000000000000000001 /* GlideTranslate */ = {isa = PBXNativeTarget; buildConfigurationList = AB0000000000000000000001; buildPhases = (AC0000000000000000000001, A60000000000000000000001, AD0000000000000000000001); buildRules = (); dependencies = (); fileSystemSynchronizedGroups = (A70000000000000000000002 /* GlideTranslate */,); name = GlideTranslate; packageProductDependencies = (A90000000000000000000001, A90000000000000000000002, A90000000000000000000003, A90000000000000000000004, A90000000000000000000005); productName = GlideTranslate; productReference = A30000000000000000000008; productType = "com.apple.product-type.application"; };
+		A10000000000000000000002 /* GlideTranslateTests */ = {isa = PBXNativeTarget; buildConfigurationList = AB0000000000000000000002; buildPhases = (AC0000000000000000000002, A60000000000000000000002, AD0000000000000000000002); buildRules = (); dependencies = (AE0000000000000000000001); fileSystemSynchronizedGroups = (A70000000000000000000003 /* GlideTranslateTests */,); name = GlideTranslateTests; packageProductDependencies = (); productName = GlideTranslateTests; productReference = A30000000000000000000009; productType = "com.apple.product-type.bundle.unit-test"; };
+		A10000000000000000000003 /* GlideTranslateUITests */ = {isa = PBXNativeTarget; buildConfigurationList = AB0000000000000000000003; buildPhases = (AC0000000000000000000003, A60000000000000000000003, AD0000000000000000000003); buildRules = (); dependencies = (AE0000000000000000000002, AE0000000000000000000003); fileSystemSynchronizedGroups = (A70000000000000000000004 /* GlideTranslateUITests */,); name = GlideTranslateUITests; packageProductDependencies = (); productName = GlideTranslateUITests; productReference = A3000000000000000000000A; productType = "com.apple.product-type.bundle.ui-testing"; };
+		A10000000000000000000004 /* FocusFixtureApp */ = {isa = PBXNativeTarget; buildConfigurationList = AB0000000000000000000004; buildPhases = (AC0000000000000000000004, A60000000000000000000004, AD0000000000000000000004); buildRules = (); dependencies = (); fileSystemSynchronizedGroups = (A70000000000000000000006 /* FocusFixtureApp */,); name = FocusFixtureApp; packageProductDependencies = (); productName = FocusFixtureApp; productReference = A3000000000000000000000B; productType = "com.apple.product-type.application"; };
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A50000000000000000000001 /* Project object */ = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 2660; LastUpgradeCheck = 2660; TargetAttributes = {A10000000000000000000001 = {CreatedOnToolsVersion = 26.6; }; A10000000000000000000002 = {CreatedOnToolsVersion = 26.6; TestTargetID = A10000000000000000000001; }; A10000000000000000000003 = {CreatedOnToolsVersion = 26.6; TestTargetID = A10000000000000000000001; }; A10000000000000000000004 = {CreatedOnToolsVersion = 26.6; }; }; }; buildConfigurationList = AB0000000000000000000000; compatibilityVersion = "Xcode 16.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = A70000000000000000000001; minimizedProjectReferenceProxies = 1; packageReferences = (AF0000000000000000000001); preferredProjectObjectVersion = 77; productRefGroup = A70000000000000000000005; projectDirPath = ""; projectRoot = ""; targets = (A10000000000000000000001, A10000000000000000000002, A10000000000000000000003, A10000000000000000000004); };
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AD0000000000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AD0000000000000000000002 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AD0000000000000000000003 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AD0000000000000000000004 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AC0000000000000000000001 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AC0000000000000000000002 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AC0000000000000000000003 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		AC0000000000000000000004 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AE0000000000000000000001 = {isa = PBXTargetDependency; target = A10000000000000000000001; targetProxy = A40000000000000000000001; };
+		AE0000000000000000000002 = {isa = PBXTargetDependency; target = A10000000000000000000001; targetProxy = A40000000000000000000002; };
+		AE0000000000000000000003 = {isa = PBXTargetDependency; target = A10000000000000000000004; targetProxy = A40000000000000000000003; };
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		AA0000000000000000000001 = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; ENABLE_TESTABILITY = YES; MACOSX_DEPLOYMENT_TARGET = 14.0; ONLY_ACTIVE_ARCH = YES; SDKROOT = macosx; SWIFT_VERSION = 6.0; }; name = Debug; };
+		AA0000000000000000000002 = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; MACOSX_DEPLOYMENT_TARGET = 14.0; SDKROOT = macosx; SWIFT_VERSION = 6.0; }; name = Release; };
+		AA0000000000000000000011 = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = ""; CODE_SIGN_ENTITLEMENTS = App/GlideTranslate/GlideTranslate.entitlements; CODE_SIGN_STYLE = Automatic; CODE_SIGNING_ALLOWED = NO; COMBINE_HIDPI_IMAGES = YES; ENABLE_APP_SANDBOX = NO; ENABLE_HARDENED_RUNTIME = NO; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = App/GlideTranslate/Info.plist; MACOSX_DEPLOYMENT_TARGET = 14.0; PRODUCT_BUNDLE_IDENTIFIER = com.zaryolabs.GlideTranslate; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; }; name = Debug; };
+		AA0000000000000000000012 = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = ""; CODE_SIGN_ENTITLEMENTS = App/GlideTranslate/GlideTranslate.entitlements; CODE_SIGN_STYLE = Automatic; COMBINE_HIDPI_IMAGES = YES; ENABLE_APP_SANDBOX = NO; ENABLE_HARDENED_RUNTIME = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = App/GlideTranslate/Info.plist; MACOSX_DEPLOYMENT_TARGET = 14.0; PRODUCT_BUNDLE_IDENTIFIER = com.zaryolabs.GlideTranslate; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; }; name = Release; };
+		AA0000000000000000000021 = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; CODE_SIGNING_ALLOWED = NO; GENERATE_INFOPLIST_FILE = YES; MACOSX_DEPLOYMENT_TARGET = 14.0; PRODUCT_BUNDLE_IDENTIFIER = com.zaryolabs.GlideTranslateTests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GlideTranslate.app/Contents/MacOS/GlideTranslate"; }; name = Debug; };
+		AA0000000000000000000022 = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; MACOSX_DEPLOYMENT_TARGET = 14.0; PRODUCT_BUNDLE_IDENTIFIER = com.zaryolabs.GlideTranslateTests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GlideTranslate.app/Contents/MacOS/GlideTranslate"; }; name = Release; };
+		AA0000000000000000000031 = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; CODE_SIGNING_ALLOWED = NO; GENERATE_INFOPLIST_FILE = YES; MACOSX_DEPLOYMENT_TARGET = 14.0; PRODUCT_BUNDLE_IDENTIFIER = com.zaryolabs.GlideTranslateUITests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; TEST_TARGET_NAME = GlideTranslate; }; name = Debug; };
+		AA0000000000000000000032 = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; MACOSX_DEPLOYMENT_TARGET = 14.0; PRODUCT_BUNDLE_IDENTIFIER = com.zaryolabs.GlideTranslateUITests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; TEST_TARGET_NAME = GlideTranslate; }; name = Release; };
+		AA0000000000000000000041 = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; CODE_SIGNING_ALLOWED = NO; GENERATE_INFOPLIST_FILE = YES; MACOSX_DEPLOYMENT_TARGET = 14.0; PRODUCT_BUNDLE_IDENTIFIER = com.zaryolabs.GlideTranslate.FocusFixture; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; }; name = Debug; };
+		AA0000000000000000000042 = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; MACOSX_DEPLOYMENT_TARGET = 14.0; PRODUCT_BUNDLE_IDENTIFIER = com.zaryolabs.GlideTranslate.FocusFixture; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; }; name = Release; };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AB0000000000000000000000 = {isa = XCConfigurationList; buildConfigurations = (AA0000000000000000000001, AA0000000000000000000002); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		AB0000000000000000000001 = {isa = XCConfigurationList; buildConfigurations = (AA0000000000000000000011, AA0000000000000000000012); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		AB0000000000000000000002 = {isa = XCConfigurationList; buildConfigurations = (AA0000000000000000000021, AA0000000000000000000022); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		AB0000000000000000000003 = {isa = XCConfigurationList; buildConfigurations = (AA0000000000000000000031, AA0000000000000000000032); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		AB0000000000000000000004 = {isa = XCConfigurationList; buildConfigurations = (AA0000000000000000000041, AA0000000000000000000042); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AF0000000000000000000001 = {isa = XCLocalSwiftPackageReference; relativePath = .; };
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A90000000000000000000001 /* SharedSupport */ = {isa = XCSwiftPackageProductDependency; package = AF0000000000000000000001; productName = SharedSupport; };
+		A90000000000000000000002 /* SelectionCapture */ = {isa = XCSwiftPackageProductDependency; package = AF0000000000000000000001; productName = SelectionCapture; };
+		A90000000000000000000003 /* PrivacyStorage */ = {isa = XCSwiftPackageProductDependency; package = AF0000000000000000000001; productName = PrivacyStorage; };
+		A90000000000000000000004 /* ModelProviders */ = {isa = XCSwiftPackageProductDependency; package = AF0000000000000000000001; productName = ModelProviders; };
+		A90000000000000000000005 /* TranslationCore */ = {isa = XCSwiftPackageProductDependency; package = AF0000000000000000000001; productName = TranslationCore; };
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A50000000000000000000001 /* Project object */;
+}
