@@ -171,6 +171,30 @@ for mode in clean finding malformed failure; do
   ! /usr/bin/grep -q 'synthetic-private-value\|INJECTED_PRIVATE_DIAGNOSTIC' "$repo.out"
 done
 
+make_allowed_privacy_loopbacks() {
+  repo="$1"
+  printf -v accepted_loopback '%s.%s.%s.%s' 127 0 0 1
+  accepted_paths=(
+    Sources/PrivacyStorage/ProviderVault/Accepted.swift
+    Tests/PrivacyStorageTests/OffDeviceAuthorizationTests.swift
+    Tests/PrivacyStorageTests/PrivacyStorageFactoryTests.swift
+    Tests/PrivacyStorageTests/ProviderMetadataRepositoryTests.swift
+    Tests/PrivacyStorageTests/ProviderVaultHandleTests.swift
+    Tests/PrivacyStorageTests/ProviderVaultStateMachineTests.swift
+    script/check_local_ollama_preflight.sh
+  )
+  for accepted_path in "${accepted_paths[@]}"; do
+    /bin/mkdir -p "$repo/$(dirname "$accepted_path")"
+    printf 'let endpoint = "http://%s:11434"\n' "$accepted_loopback" \
+      > "$repo/$accepted_path"
+  done
+  commit_all "$repo" 'Add accepted privacy loopback defaults'
+}
+repo="$fixture_root/accepted-privacy-loopbacks"
+new_repo "$repo"
+make_allowed_privacy_loopbacks "$repo"
+"$workspace_root/script/check_history.sh" "$repo"
+
 repo="$fixture_root/accepted"; new_repo "$repo"
 "$workspace_root/script/check_history.sh" "$repo"
 printf '%s\n' HISTORY_TESTS_PASS

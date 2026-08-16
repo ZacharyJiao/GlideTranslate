@@ -22,7 +22,7 @@ check_history_content_object() {
     *) /bin/rm -f "$object_file"; printf 'HISTORY_CONTENT_SCAN_FAILED:%s:%s\n' "$commit" "$relative_path" >&2; exit 2;;
   esac
   loopback_pattern='https?://127[.]0[.]0[.]1(:[0-9]+)?'
-  case "$relative_path" in Sources/SharedSupport/Domain/ProviderTypes.swift|Sources/ModelProviders/*|Tests/ModelProvidersTests/*|App/GlideTranslate/Onboarding/*|App/GlideTranslate/Settings/*) ;;
+  case "$relative_path" in Sources/SharedSupport/Domain/ProviderTypes.swift|Sources/ModelProviders/*|Tests/ModelProvidersTests/*|App/GlideTranslate/Onboarding/*|App/GlideTranslate/Settings/*|Sources/PrivacyStorage/ProviderVault/*|Tests/PrivacyStorageTests/OffDeviceAuthorizationTests.swift|Tests/PrivacyStorageTests/PrivacyStorageFactoryTests.swift|Tests/PrivacyStorageTests/ProviderMetadataRepositoryTests.swift|Tests/PrivacyStorageTests/ProviderVaultHandleTests.swift|Tests/PrivacyStorageTests/ProviderVaultStateMachineTests.swift|script/check_local_ollama_preflight.sh) ;;
     *)
       rg_status=0
       LC_ALL=C rg -a -q --regexp "$loopback_pattern" "$object_file" 2>> "$history_root/rg.private" || rg_status=$?
