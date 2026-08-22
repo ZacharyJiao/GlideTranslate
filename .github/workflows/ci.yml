@@ -48,6 +48,8 @@ jobs:
           set -euo pipefail
           aggregate_log="$RUNNER_TEMP/glidetranslate-candidate-aggregate.private.log"
           aggregate_stage="$RUNNER_TEMP/glidetranslate-candidate-aggregate.stage"
+          unit_result_bundle="$RUNNER_TEMP/glidetranslate-unit-tests.private.xcresult"
+          unit_summary_file="$RUNNER_TEMP/glidetranslate-unit-failure-summary.private"
           cleanup_aggregate_log() {
             prior_status=$?
             trap - EXIT INT TERM HUP
@@ -58,6 +60,12 @@ jobs:
             if [ -f "$aggregate_stage" ]; then
               /bin/rm -P "$aggregate_stage" || cleanup_status=$?
             fi
+            if [ -e "$unit_result_bundle" ]; then
+              /bin/rm -rf "$unit_result_bundle" || cleanup_status=$?
+            fi
+            if [ -f "$unit_summary_file" ]; then
+              /bin/rm -P "$unit_summary_file" || cleanup_status=$?
+            fi
             if [ "$prior_status" -ne 0 ]; then exit "$prior_status"; fi
             exit "$cleanup_status"
           }
@@ -66,6 +74,8 @@ jobs:
           trap 'exit 143' TERM
           trap 'exit 129' HUP
           aggregate_status=0
+          /bin/rm -rf "$unit_result_bundle" "$unit_summary_file"
+          GT_XCODE_UNIT_RESULT_BUNDLE="$unit_result_bundle" \
           GT_AGGREGATE_STAGE_FILE="$aggregate_stage" \
             ./script/test_all.sh > "$aggregate_log" 2>&1 || aggregate_status=$?
           if [ "$aggregate_status" -ne 0 ]; then
@@ -73,7 +83,7 @@ jobs:
             if [ -s "$aggregate_stage" ]; then
               candidate_stage="$(/bin/cat "$aggregate_stage")"
               case "$candidate_stage" in
-                XCODE_UNIT_TESTS|XCODE_UI_TESTS)
+                XCODE_UNIT_FAILURE_SUMMARY_TESTS|XCODE_UNIT_TESTS|XCODE_UI_TESTS)
                   failed_stage="$candidate_stage"
                   ;;
                 PUBLIC_TREE|WORKFLOW_PINS|LOCALIZATIONS|COMPATIBILITY_REPORT_TESTS|COMPATIBILITY_REPORT|LOCAL_OLLAMA_PREFLIGHT_TESTS|RELEASE_PAYLOAD_INSPECTION_TESTS|ADHOC_RELEASE_PACKAGING_TESTS|ADHOC_RELEASE_PACKAGING_TESTS_ACCEPTED_FIXTURE|ADHOC_RELEASE_PACKAGING_TESTS_ACCEPTED_FIXTURE_SIGNATURE|ADHOC_RELEASE_PACKAGING_TESTS_ACCEPTED_FIXTURE_ENTITLEMENTS|ADHOC_RELEASE_PACKAGING_TESTS_ACCEPTED_FIXTURE_GATEKEEPER|ADHOC_RELEASE_PACKAGING_TESTS_ACCEPTED_FIXTURE_PAYLOAD|ADHOC_RELEASE_PACKAGING_TESTS_ACCEPTED_FIXTURE_ARCHIVE|ADHOC_RELEASE_PACKAGING_TESTS_ACCEPTED_FIXTURE_CHECKSUM|ADHOC_RELEASE_PACKAGING_TESTS_ACCEPTED_FIXTURE_UNKNOWN|ADHOC_RELEASE_PACKAGING_TESTS_EXISTING_OUTPUT|ADHOC_RELEASE_PACKAGING_TESTS_WRONG_VERSION|ADHOC_RELEASE_PACKAGING_TESTS_WRONG_BUILD|ADHOC_RELEASE_PACKAGING_TESTS_WRONG_ARCHITECTURE|ADHOC_RELEASE_PACKAGING_TESTS_MISSING_LAYOUT|ADHOC_RELEASE_PACKAGING_TESTS_EXTRA_PAYLOAD|ADHOC_RELEASE_PACKAGING_TESTS_SIGNING_FAILURE|ADHOC_RELEASE_PACKAGING_TESTS_SIGNATURE_CLASSIFICATION|ADHOC_RELEASE_PACKAGING_TESTS_ENTITLEMENTS|ADHOC_RELEASE_PACKAGING_TESTS_SPCTL_FAILURE|ADHOC_RELEASE_PACKAGING_TESTS_SPCTL_ACCEPTED|ADHOC_RELEASE_PACKAGING_TESTS_ROUNDTRIP|ADHOC_RELEASE_PACKAGING_TESTS_POLICY_CLASSIFICATION|ADHOC_RELEASE_PACKAGING_TESTS_ZIP_FAILURE|ADHOC_RELEASE_PACKAGING_TESTS_UNZIP_FAILURE|ADHOC_RELEASE_PACKAGING_TESTS_CHECKSUM_FAILURE|ADHOC_RELEASE_PACKAGING_TESTS_COMPLETE|BOUNDED_DOWNLOAD_TESTS|SAFE_EXTRACTION_TESTS|EXTERNAL_SURFACE_TESTS|ACTIONLINT|SWIFTPM_TESTS|XCODE_RELEASE_BUILD)
@@ -82,6 +92,33 @@ jobs:
               esac
             fi
             printf 'CANDIDATE_AGGREGATE_FAILED:%s\n' "$failed_stage" >&2
+            if [ "$failed_stage" = XCODE_UNIT_TESTS ]; then
+              summary_status=0
+              if [ -d "$unit_result_bundle" ]; then
+                ./script/summarize_xcode_unit_failure.sh "$unit_result_bundle" \
+                  > "$unit_summary_file" 2>/dev/null || summary_status=$?
+              else
+                printf '%s\n' XCODE_UNIT_FAILURE_SUMMARY:UNVERIFIABLE \
+                  > "$unit_summary_file"
+              fi
+              summary_line_count=0
+              if [ -f "$unit_summary_file" ]; then
+                summary_line_count="$(/usr/bin/wc -l < "$unit_summary_file" | /usr/bin/tr -d ' ')"
+              fi
+              summary_valid_status=0
+              if [ "$summary_status" -eq 0 ]; then
+                "$tool_root/bin/rg" -P -q -- \
+                  '^XCODE_UNIT_FAILURE_SUMMARY:GlideTranslateTests/[A-Za-z_][A-Za-z0-9_]*/[A-Za-z_][A-Za-z0-9_]*(\(\))?:(assertion|setup|crash|timeout|unknown)$' \
+                  "$unit_summary_file" || summary_valid_status=$?
+              else
+                summary_valid_status=1
+              fi
+              if [ "$summary_line_count" -eq 1 ] && [ "$summary_valid_status" -eq 0 ]; then
+                /bin/cat "$unit_summary_file"
+              else
+                printf '%s\n' XCODE_UNIT_FAILURE_SUMMARY:UNVERIFIABLE
+              fi
+            fi
             exit "$aggregate_status"
           fi
           printf '%s\n' CANDIDATE_AGGREGATE_PASSED

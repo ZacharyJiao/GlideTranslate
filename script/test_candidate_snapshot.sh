@@ -169,6 +169,7 @@ for probe_script in \
   check_compatibility_report.sh \
   test_local_ollama_preflight.sh \
   test_release_payload_inspection.sh \
+  test_summarize_xcode_unit_failure.sh \
   test_adhoc_release_packaging.sh \
   test_download_bounded_asset.sh \
   test_safe_extract_asset.sh \
@@ -177,6 +178,11 @@ for probe_script in \
     > "$probe_source/script/$probe_script"
 done
 /bin/chmod 755 "$probe_source/script/"*.sh
+printf '%s\n' '#!/usr/bin/env bash' \
+  'set -euo pipefail' \
+  ': > "$GT_PROBE_TMP_ROOT/xcode-summary-test"' \
+  > "$probe_source/script/test_summarize_xcode_unit_failure.sh"
+/bin/chmod 755 "$probe_source/script/test_summarize_xcode_unit_failure.sh"
 printf '%s\n' \
   .github/workflows/ci.yml GlideTranslate.xcodeproj Package.swift script \
   > "$probe_source/script/public_paths.txt"
@@ -251,7 +257,8 @@ run_aggregate_probe aggregate-success
 test "$(/bin/cat "$fixture_parent/aggregate-success.stage")" = COMPLETE
 test -f "$probe_tmp/xcode-unit"
 test -f "$probe_tmp/xcode-ui"
-/bin/rm -f "$probe_tmp/xcode-unit" "$probe_tmp/xcode-ui"
+test -f "$probe_tmp/xcode-summary-test"
+/bin/rm -f "$probe_tmp/xcode-unit" "$probe_tmp/xcode-ui" "$probe_tmp/xcode-summary-test"
 test -z "$(/usr/bin/find "$probe_tmp" -mindepth 1 -print -quit)"
 
 xcode_unit_status=0
@@ -261,7 +268,7 @@ test "$xcode_unit_status" -eq 23
 test "$(/bin/cat "$fixture_parent/aggregate-xcode-unit-failure.stage")" = XCODE_UNIT_TESTS
 test -f "$probe_tmp/xcode-unit"
 test ! -e "$probe_tmp/xcode-ui"
-/bin/rm -f "$probe_tmp/xcode-unit"
+/bin/rm -f "$probe_tmp/xcode-unit" "$probe_tmp/xcode-summary-test"
 test -z "$(/usr/bin/find "$probe_tmp" -mindepth 1 -print -quit)"
 
 xcode_ui_status=0
@@ -271,7 +278,7 @@ test "$xcode_ui_status" -eq 29
 test "$(/bin/cat "$fixture_parent/aggregate-xcode-ui-failure.stage")" = XCODE_UI_TESTS
 test -f "$probe_tmp/xcode-unit"
 test -f "$probe_tmp/xcode-ui"
-/bin/rm -f "$probe_tmp/xcode-unit" "$probe_tmp/xcode-ui"
+/bin/rm -f "$probe_tmp/xcode-unit" "$probe_tmp/xcode-ui" "$probe_tmp/xcode-summary-test"
 test -z "$(/usr/bin/find "$probe_tmp" -mindepth 1 -print -quit)"
 
 body_status=0

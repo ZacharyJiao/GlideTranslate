@@ -80,13 +80,21 @@ record_stage ACTIONLINT
 actionlint "$candidate_root/.github/workflows/ci.yml"
 record_stage SWIFTPM_TESTS
 DEVELOPER_DIR="$developer_dir" swift test --package-path "$candidate_root"
+record_stage XCODE_UNIT_FAILURE_SUMMARY_TESTS
+"$candidate_root/script/test_summarize_xcode_unit_failure.sh"
+xcode_unit_command_args=(
+  -project "$candidate_root/GlideTranslate.xcodeproj"
+  -scheme GlideTranslate
+  -configuration Debug
+  -destination 'platform=macOS'
+  -only-testing:GlideTranslateTests
+)
+if [ -n "${GT_XCODE_UNIT_RESULT_BUNDLE:-}" ]; then
+  xcode_unit_command_args+=(-resultBundlePath "$GT_XCODE_UNIT_RESULT_BUNDLE")
+fi
 record_stage XCODE_UNIT_TESTS
 DEVELOPER_DIR="$developer_dir" xcodebuild \
-  -project "$candidate_root/GlideTranslate.xcodeproj" \
-  -scheme GlideTranslate \
-  -configuration Debug \
-  -destination 'platform=macOS' \
-  -only-testing:GlideTranslateTests \
+  "${xcode_unit_command_args[@]}" \
   CODE_SIGNING_ALLOWED=NO \
   SWIFT_SUPPRESS_WARNINGS=NO \
   SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
