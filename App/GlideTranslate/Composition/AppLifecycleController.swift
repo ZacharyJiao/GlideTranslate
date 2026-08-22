@@ -1,6 +1,12 @@
 import PrivacyStorage
 import SelectionCapture
 import SharedSupport
+import OSLog
+
+private let lifecycleRuntimeLogger = Logger(
+    subsystem: "com.zaryolabs.GlideTranslate",
+    category: "LifecycleRuntime"
+)
 
 protocol LifecycleRequestControlling: Sendable {
     func cancelAndDismissForTermination() async
@@ -119,6 +125,7 @@ final class AppLifecycleController {
         shortcut: ShortcutDescriptor
     ) async {
         guard phase == .idle else { return }
+        lifecycleRuntimeLogger.info("Lifecycle start entered")
         phase = .running
         self.onboardingCompleted = onboardingCompleted
         self.automaticCaptureEnabled = automaticCaptureEnabled
@@ -142,6 +149,10 @@ final class AppLifecycleController {
         } else {
             shortcutGate = .pending
         }
+
+        lifecycleRuntimeLogger.info(
+            "Lifecycle shortcut gate ready: \(self.shortcutGate == .ready, privacy: .public)"
+        )
 
         await performMaintenance()
         guard phase == .running else { return }
@@ -273,6 +284,7 @@ final class AppLifecycleController {
 
     private func performMaintenance() async {
         guard phase == .running else { return }
+        lifecycleRuntimeLogger.info("Lifecycle maintenance started")
         do {
             try await history.performMaintenance()
             maintenanceReady = true
@@ -282,7 +294,9 @@ final class AppLifecycleController {
         guard phase == .running, !Task.isCancelled else { return }
         do {
             try await reconcileMonitor()
+            lifecycleRuntimeLogger.info("Lifecycle monitor reconciliation completed")
         } catch {
+            lifecycleRuntimeLogger.error("Lifecycle monitor reconciliation failed")
             guard phase == .running, !Task.isCancelled else { return }
             captureUnavailable = true
             await monitor.stop()

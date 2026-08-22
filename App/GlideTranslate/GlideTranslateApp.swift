@@ -25,9 +25,6 @@ struct GlideTranslateApp: App {
                             ManualWindowRequestBridge(
                                 presenter: root.sceneState.manualPresenter
                             )
-                            SettingsWindowRequestBridge(
-                                presenter: root.sceneState.settingsPresenter
-                            )
                             OnboardingWindowRequestBridge(
                                 presenter: root.sceneState.onboardingPresenter
                             )

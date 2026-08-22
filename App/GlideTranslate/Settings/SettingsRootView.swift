@@ -10,7 +10,16 @@ enum SettingsSection: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
-    var labelKey: LocalizedStringKey { LocalizedStringKey("settings.\(rawValue)") }
+    var labelKey: LocalizedStringKey {
+        switch self {
+        case .general: "settings.general"
+        case .selection: "settings.selection"
+        case .models: "settings.models"
+        case .prompts: "settings.prompts"
+        case .privacyHistory: "settings.privacyHistory"
+        case .about: "settings.about"
+        }
+    }
 
     var symbol: String {
         switch self {
@@ -86,6 +95,7 @@ struct SettingsRootView: View {
                 detail
             }
         }
+        .id(viewModel.snapshot.uiLanguage)
         .frame(minWidth: 760, minHeight: 560)
         .environment(\.locale, viewModel.uiLocale)
     }

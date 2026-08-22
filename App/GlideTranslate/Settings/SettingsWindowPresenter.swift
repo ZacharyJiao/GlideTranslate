@@ -3,44 +3,93 @@ import Observation
 import SwiftUI
 
 @MainActor
-@Observable
-final class SettingsWindowPresenter {
-    private(set) var requestCount = 0
-    private(set) var consumedRequestCount = 0
+protocol SettingsWindowDisplaying: AnyObject {
+    func present()
+}
 
-    func open() {
-        requestCount &+= 1
+@MainActor
+private final class AppKitSettingsWindow: NSObject, SettingsWindowDisplaying, NSWindowDelegate {
+    private let controller: NSWindowController
+    private var restoresAccessoryPolicy = false
+
+    init(rootView: AnyView) {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 560),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = String(localized: "menu.settings")
+            .trimmingCharacters(in: CharacterSet(charactersIn: ".…"))
+        window.contentViewController = NSHostingController(rootView: rootView)
+        window.isReleasedWhenClosed = false
+        window.collectionBehavior.insert(.moveToActiveSpace)
+        window.center()
+        controller = NSWindowController(window: window)
+        super.init()
+        window.delegate = self
     }
 
-    func openPendingRequests(
-        using openSettings: @MainActor () -> Void,
-        activateApplication: @MainActor () -> Void
-    ) {
-        guard consumedRequestCount < requestCount else { return }
-        consumedRequestCount = requestCount
-        openSettings()
-        activateApplication()
+    func present() {
+        if NSApp.activationPolicy() == .accessory {
+            restoresAccessoryPolicy = NSApp.setActivationPolicy(.regular)
+        }
+        NSApp.unhide(nil)
+        controller.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        controller.window?.makeKeyAndOrderFront(nil)
+        controller.window?.orderFrontRegardless()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard restoresAccessoryPolicy else { return }
+        restoresAccessoryPolicy = false
+        NSApp.setActivationPolicy(.accessory)
     }
 }
 
-struct SettingsWindowRequestBridge: View {
-    let presenter: SettingsWindowPresenter
-    @Environment(\.openSettings) private var openSettings
+@MainActor
+@Observable
+final class SettingsWindowPresenter {
+    typealias WindowFactory = @MainActor (AnyView) -> any SettingsWindowDisplaying
 
-    var body: some View {
-        Color.clear
-            .frame(width: 0, height: 0)
-            .onAppear { openPendingRequests() }
-            .onChange(of: presenter.requestCount) { _, _ in openPendingRequests() }
-            .accessibilityHidden(true)
+    private(set) var requestCount = 0
+    private(set) var systemOpenRequestCount = 0
+    @ObservationIgnored private let windowFactory: WindowFactory
+    @ObservationIgnored private var contentFactory: (@MainActor () -> AnyView)?
+    @ObservationIgnored private var settingsWindow: (any SettingsWindowDisplaying)?
+
+    init(windowFactory: @escaping WindowFactory = { AppKitSettingsWindow(rootView: $0) }) {
+        self.windowFactory = windowFactory
     }
 
-    private func openPendingRequests() {
-        presenter.openPendingRequests(
-            using: { openSettings() },
-            activateApplication: {
-                NSApp.activate(ignoringOtherApps: true)
+    func installContent(_ contentFactory: @escaping @MainActor () -> AnyView) {
+        self.contentFactory = contentFactory
+    }
+
+    func open() {
+        requestCount &+= 1
+        presentInstalledWindow()
+    }
+
+    func openSystemSettings() {
+        systemOpenRequestCount &+= 1
+        presentInstalledWindow()
+    }
+
+    private func presentInstalledWindow() {
+        guard contentFactory != nil else { return }
+        RunLoop.main.perform(inModes: [.default]) { [weak self] in
+            MainActor.assumeIsolated {
+                self?.presentInstalledWindowNow()
             }
-        )
+        }
+    }
+
+    private func presentInstalledWindowNow() {
+        if settingsWindow == nil, let contentFactory {
+            settingsWindow = windowFactory(contentFactory())
+        }
+        settingsWindow?.present()
     }
 }

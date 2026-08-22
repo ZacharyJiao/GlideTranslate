@@ -22,17 +22,17 @@ struct MenuBarActions: Sendable {
     let translateSelectedText: @MainActor @Sendable () -> Void
     let setAutomaticCapturePaused: @MainActor @Sendable (Bool) -> Void
     let selectPreset: @MainActor @Sendable (PresetID) -> Void
+    let openSettings: @MainActor @Sendable () -> Void
 
     static let development = Self(
         translateSelectedText: {},
         setAutomaticCapturePaused: { _ in },
-        selectPreset: { _ in }
+        selectPreset: { _ in },
+        openSettings: {}
     )
 }
 
 struct MenuBarContent: View {
-    @Environment(\.openSettings) private var openSettings
-
     let model: MenuStatusModel
     let presetOptions: [MenuPresetOption]
     let actions: MenuBarActions
@@ -69,7 +69,7 @@ struct MenuBarContent: View {
             }
         }
         if let recoveryTextKey = model.recoveryTextKey {
-            Button(recoveryTextKey) { openSettings() }
+            Button(recoveryTextKey, action: actions.openSettings)
         }
 
         Menu("menu.preset") {
@@ -97,7 +97,7 @@ struct MenuBarContent: View {
 
         Divider()
 
-        Button("menu.settings") { openSettings() }
+        Button("menu.settings", action: actions.openSettings)
             .keyboardShortcut(",", modifiers: .command)
         Button("menu.quit") { NSApplication.shared.terminate(nil) }
     }

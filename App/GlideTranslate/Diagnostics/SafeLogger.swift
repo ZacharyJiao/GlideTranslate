@@ -1,9 +1,14 @@
 import ModelProviders
 import OSLog
+import SelectionCapture
 import SharedSupport
 
 enum SafeLogRecord: Equatable, Sendable {
+    case captureTrigger(CaptureTriggerCategory)
+    case shortcutReceived
     case capture(CaptureOutcomeCategory)
+    case captureFailure(CaptureFailureCategory)
+    case selectionAX(SelectionAXDiagnostic)
     case providerHealth(ProviderHealthCategory)
     case providerDiagnostic(
         DestinationPrivacyClass,
@@ -34,8 +39,16 @@ struct SafeLogger: Sendable {
 
     func record(_ event: AppEvent) {
         switch event {
+        case let .captureTriggerReceived(trigger):
+            emitter.emit(.captureTrigger(trigger))
+        case .shortcutReceived:
+            emitter.emit(.shortcutReceived)
         case let .captureOutcome(outcome):
             emitter.emit(.capture(outcome))
+        case let .captureFailure(failure):
+            emitter.emit(.captureFailure(failure))
+        case let .selectionAXDiagnostic(diagnostic):
+            emitter.emit(.selectionAX(diagnostic))
         case let .providerHealth(health):
             emitter.emit(.providerHealth(health))
         case let .translationOutcome(failure, durationMilliseconds):
@@ -60,6 +73,10 @@ struct SafeLogger: Sendable {
             outcome,
             durationMilliseconds: durationMilliseconds
         ))
+    }
+
+    func recordSelectionDiagnostic(_ diagnostic: SelectionAXDiagnostic) {
+        record(.selectionAXDiagnostic(diagnostic))
     }
 }
 
@@ -87,9 +104,23 @@ private struct OSLogSafeLogEmitter: SafeLogEmitting {
 
     func emit(_ record: SafeLogRecord) {
         switch record {
+        case let .captureTrigger(trigger):
+            capture.info(
+                "trigger_received=\(trigger.rawValue, privacy: .public)"
+            )
+        case .shortcutReceived:
+            capture.info("shortcut_received=shortcut")
         case let .capture(outcome):
             capture.info(
                 "capture_outcome=\(outcome.rawValue, privacy: .public)"
+            )
+        case let .captureFailure(failure):
+            capture.info(
+                "capture_failure=\(failure.rawValue, privacy: .public)"
+            )
+        case let .selectionAX(diagnostic):
+            capture.info(
+                "ax_stage=\(diagnostic.rawValue, privacy: .public)"
             )
         case let .providerHealth(health):
             provider.info(

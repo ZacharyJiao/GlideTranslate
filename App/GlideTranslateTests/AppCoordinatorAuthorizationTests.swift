@@ -145,12 +145,24 @@ final class AppCoordinatorAuthorizationTests: XCTestCase {
         }
     }
 
-    func testDistinctSelectionFailuresAreNotCollapsedToApplicationNotAllowed() async {
-        let rows: [(SelectionAuthorizationFailure, SafeNextAction)] = [
-            (.automaticCapturePaused, .resumeAutomaticOrUseShortcut),
-            (.offDeviceApplicationNotAllowed, .authorizeApplicationOrUseExplicitAction),
+    func testAutomaticSelectionRejectionsNeverPresentInterruptingFeedback() async {
+        let failures: [SelectionAuthorizationFailure] = [
+            .automaticCapturePaused,
+            .mouseCaptureDisabled,
+            .keyboardCaptureDisabled,
+            .applicationNotAllowed,
+            .offDeviceApplicationNotAllowed,
+            .providerDestinationUnresolved,
+            .providerChanged,
+            .accessibilityPermissionMissing,
+            .unsupportedApplication,
+            .noValidSelection,
+            .selectionReadTimedOut,
+            .unsafeFallbackState,
+            .snapshotTooLarge,
+            .foregroundApplicationChanged,
         ]
-        for (failure, expectedAction) in rows {
+        for failure in failures {
             let fixture = CoordinatorFixture(systemOutcome: .rejected(failure))
 
             await fixture.coordinator.handleSystemTrigger(
@@ -160,11 +172,90 @@ final class AppCoordinatorAuthorizationTests: XCTestCase {
                 presetID: fixture.presetID
             )
 
-            XCTAssertEqual(
-                fixture.feedback.presentations.map(\.action),
-                [expectedAction]
+            XCTAssertTrue(
+                fixture.feedback.presentations.isEmpty,
+                String(describing: failure)
             )
         }
+    }
+
+    func testExplicitShortcutRejectionStillPresentsSafeNextAction() async {
+        let fixture = CoordinatorFixture(systemOutcome: .rejected(.providerChanged))
+
+        await fixture.coordinator.handleSystemTrigger(
+            .shortcut,
+            sourceLanguage: .automatic,
+            targetLanguage: .identified("en"),
+            presetID: fixture.presetID
+        )
+
+        XCTAssertEqual(
+            fixture.feedback.presentations.map(\.action),
+            [.reconfirmDestination]
+        )
+    }
+
+    func testRejectedAutomaticTriggerDoesNotCancelOrDismissActiveTranslation() async {
+        let fixture = CoordinatorFixture()
+        let requestID = TranslationRequestID()
+        fixture.engine.suspendsStreams = true
+        fixture.systemProcessor.outcome = .authorized(
+            fixture.intent(requestID: requestID),
+            fixture.context()
+        )
+
+        await fixture.coordinator.handleSystemTrigger(
+            .shortcut,
+            sourceLanguage: .automatic,
+            targetLanguage: .identified("en"),
+            presetID: fixture.presetID
+        )
+        await fixture.waitForEngineCalls(1)
+        let dismissalsBeforeRejectedAutomatic = fixture.panel.dismissTemporaryCount
+
+        fixture.systemProcessor.outcome = .rejected(.noValidSelection)
+        await fixture.coordinator.handleSystemTrigger(
+            .mouse,
+            sourceLanguage: .automatic,
+            targetLanguage: .identified("en"),
+            presetID: fixture.presetID
+        )
+
+        XCTAssertTrue(fixture.engine.cancelCalls.isEmpty)
+        XCTAssertEqual(
+            fixture.panel.dismissTemporaryCount,
+            dismissalsBeforeRejectedAutomatic
+        )
+        XCTAssertTrue(fixture.feedback.presentations.isEmpty)
+    }
+
+    func testOlderAutomaticAttemptCannotResumeAfterNewerRejectedAttempt() async {
+        let fixture = CoordinatorFixture(
+            systemOutcome: .rejected(.noValidSelection)
+        )
+        fixture.preferences.suspendNextSnapshot()
+        let olderAttempt = Task {
+            await fixture.coordinator.handleSystemTrigger(
+                .mouse,
+                sourceLanguage: .automatic,
+                targetLanguage: .identified("en"),
+                presetID: fixture.presetID
+            )
+        }
+        await fixture.preferences.waitUntilSnapshotSuspended()
+
+        await fixture.coordinator.handleSystemTrigger(
+            .mouse,
+            sourceLanguage: .automatic,
+            targetLanguage: .identified("en"),
+            presetID: fixture.presetID
+        )
+        fixture.preferences.resumeSnapshot()
+        await olderAttempt.value
+
+        XCTAssertEqual(fixture.systemProcessor.calls.count, 1)
+        XCTAssertTrue(fixture.engine.translateCalls.isEmpty)
+        XCTAssertTrue(fixture.feedback.presentations.isEmpty)
     }
 
     func testProviderFailurePresentsItsSafeNextAction() async {
@@ -366,6 +457,67 @@ final class AppCoordinatorAuthorizationTests: XCTestCase {
         XCTAssertEqual(fixture.gate.manualSubmissions.count, 0)
         XCTAssertEqual(fixture.engine.translateCalls.count, 0)
     }
+
+    func testCurrentSystemOutcomesRecordSafeCaptureCategories() async {
+        let rows: [(
+            CaptureTrigger,
+            SelectionAuthorizationOutcome,
+            CaptureOutcomeCategory,
+            CaptureFailureCategory
+        )] = [
+            (
+                .shortcut,
+                .rejected(.selectionReadTimedOut),
+                .timedOut,
+                .timeout
+            ),
+            (
+                .mouse,
+                .rejected(.noValidSelection),
+                .rejected,
+                .noValidSelection
+            ),
+            (
+                .keyboardSelection,
+                .rejected(.cancelled),
+                .cancelled,
+                .cancelled
+            )
+        ]
+
+        for (trigger, outcome, expected, expectedFailure) in rows {
+            let emitter = RecordingCoordinatorLogEmitter()
+            let fixture = CoordinatorFixture(
+                systemOutcome: outcome,
+                logger: SafeLogger(emitter: emitter)
+            )
+            await fixture.coordinator.handleSystemTrigger(
+                trigger,
+                sourceLanguage: .automatic,
+                targetLanguage: .identified("en"),
+                presetID: fixture.presetID
+            )
+            XCTAssertEqual(emitter.records, [
+                .capture(expected),
+                .captureFailure(expectedFailure)
+            ])
+        }
+
+        let emitter = RecordingCoordinatorLogEmitter()
+        let fixture = CoordinatorFixture(
+            logger: SafeLogger(emitter: emitter)
+        )
+        fixture.systemProcessor.outcome = .authorized(
+            fixture.intent(), fixture.context()
+        )
+        await fixture.coordinator.handleSystemTrigger(
+            .mouse,
+            sourceLanguage: .automatic,
+            targetLanguage: .identified("en"),
+            presetID: fixture.presetID
+        )
+        XCTAssertEqual(emitter.records, [.capture(.succeeded)])
+    }
 }
 
 @MainActor
@@ -395,7 +547,8 @@ final class CoordinatorFixture {
         presetID: PresetID = PresetID(rawValue: "accurate-translation"),
         providerClass: DestinationPrivacyClass = .localOnDevice,
         systemOutcome: SelectionAuthorizationOutcome = .rejected(.noValidSelection),
-        panelPresenter: (any ResultPanelPresenting)? = nil
+        panelPresenter: (any ResultPanelPresenting)? = nil,
+        logger: SafeLogger? = nil
     ) {
         self.providerID = providerID
         self.presetID = presetID
@@ -423,7 +576,7 @@ final class CoordinatorFixture {
             providerConfirmation: CoordinatorProviderConfirmation(),
             promptPresets: presets,
             history: history,
-            logger: SafeLogger(emitter: CoordinatorLogEmitter())
+            logger: logger ?? SafeLogger(emitter: CoordinatorLogEmitter())
         )
         coordinator = AppCoordinator(
             environment: environment,
@@ -891,6 +1044,19 @@ struct CoordinatorProviderConfirmation: ProviderConfirmationService {
 }
 
 struct CoordinatorLogEmitter: SafeLogEmitting { func emit(_ record: SafeLogRecord) {} }
+
+final class RecordingCoordinatorLogEmitter: SafeLogEmitting, @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [SafeLogRecord] = []
+
+    var records: [SafeLogRecord] {
+        lock.withLock { storage }
+    }
+
+    func emit(_ record: SafeLogRecord) {
+        lock.withLock { storage.append(record) }
+    }
+}
 
 extension ProviderDestinationSnapshot {
     static func appFixture(

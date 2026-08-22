@@ -5,6 +5,19 @@ import XCTest
 @testable import SelectionCapture
 
 final class AccessibilitySelectionReaderTests: XCTestCase {
+    private final class DiagnosticRecorder: @unchecked Sendable {
+        private let lock = NSLock()
+        private var storage: [SelectionAXDiagnostic] = []
+
+        var events: [SelectionAXDiagnostic] {
+            lock.withLock { storage }
+        }
+
+        func record(_ event: SelectionAXDiagnostic) {
+            lock.withLock { storage.append(event) }
+        }
+    }
+
     private enum StubResult {
         case success(AXSelectionMaterial)
         case failure(AXReadFailure)
@@ -32,21 +45,41 @@ final class AccessibilitySelectionReaderTests: XCTestCase {
         enum FailurePoint {
             case none
             case applicationTimeout(AXOperationFailure)
+            case manualAccessibilityUnavailable
             case focusedTimeout(AXOperationFailure)
             case text(AXOperationFailure)
+            case textMarker(AXOperationFailure)
+            case textAndMarkerUnavailable
             case bounds(AXOperationFailure)
+            case focusedWithSystemWideFallback
+            case focusedWithSelectionFallback
+            case focusedWithoutSelectionWithDescendantFallback
+            case focusedWithoutSelectionWithChildCannotCompleteThenExhausted
+            case focusedWithoutSelectionWithApplicationWindowsCannotComplete
+            case focusedTraversalExhausted
+            case focusedTraversalCannotComplete
         }
 
         private let lock = NSLock()
         private let applicationObject = NSObject()
         private let focusedObject = NSObject()
+        private let descendantSelectionObject = NSObject()
         private let failure: FailurePoint
         private let bounds: CGRect?
+        private let selectedText: String
+        private let traversalDiagnosticHandler: SelectionAXDiagnosticHandler?
         private var eventStorage: [String] = []
 
-        init(failure: FailurePoint = .none, bounds: CGRect? = nil) {
+        init(
+            failure: FailurePoint = .none,
+            bounds: CGRect? = nil,
+            selectedText: String = "synthetic text",
+            traversalDiagnosticHandler: SelectionAXDiagnosticHandler? = nil
+        ) {
             self.failure = failure
             self.bounds = bounds
+            self.selectedText = selectedText
+            self.traversalDiagnosticHandler = traversalDiagnosticHandler
         }
 
         var events: [String] { lock.withLock { eventStorage } }
@@ -74,13 +107,129 @@ final class AccessibilitySelectionReaderTests: XCTestCase {
 
         func focusedElement(of application: AXElementToken) throws -> AXElementToken {
             record("focused element")
+            if case .focusedWithSystemWideFallback = failure {
+                throw AXOperationFailure.unavailable
+            }
+            if case .focusedWithSelectionFallback = failure {
+                throw AXOperationFailure.unavailable
+            }
+            if case .focusedTraversalExhausted = failure,
+               application.identifier == ObjectIdentifier(applicationObject) {
+                throw AXOperationFailure.unavailable
+            }
+            if case .focusedTraversalCannotComplete = failure,
+               application.identifier == ObjectIdentifier(applicationObject) {
+                throw AXOperationFailure.unavailable
+            }
+            return AXElementToken(raw: focusedObject)
+        }
+
+        func enableManualAccessibility(of application: AXElementToken) throws {
+            record("enable manual accessibility")
+            if case .manualAccessibilityUnavailable = failure {
+                throw AXOperationFailure.unavailable
+            }
+        }
+
+        func systemWideFocusedElement(expectedPID: pid_t) throws -> AXElementToken {
+            record("system wide focused element")
+            if case .focusedWithSelectionFallback = failure {
+                throw AXOperationFailure.unavailable
+            }
+            if case .focusedTraversalExhausted = failure {
+                throw AXOperationFailure.unavailable
+            }
+            if case .focusedTraversalCannotComplete = failure {
+                throw AXOperationFailure.unavailable
+            }
+            return AXElementToken(raw: focusedObject)
+        }
+
+        func selectionElementFallback(
+            of application: AXElementToken
+        ) throws -> AXElementToken {
+            record("selection element fallback")
+            if case .focusedWithoutSelectionWithDescendantFallback = failure {
+                return AXElementToken(raw: descendantSelectionObject)
+            }
+            if case .focusedWithoutSelectionWithChildCannotCompleteThenExhausted = failure {
+                traversalDiagnosticHandler?(.descendantTraversalCannotComplete)
+                throw AXOperationFailure.traversalExhausted
+            }
+            if case .focusedWithoutSelectionWithApplicationWindowsCannotComplete = failure {
+                traversalDiagnosticHandler?(.descendantTraversalCannotComplete)
+                throw AXOperationFailure.traversalCannotComplete
+            }
+            if case .focusedTraversalExhausted = failure {
+                throw AXOperationFailure.traversalExhausted
+            }
+            if case .focusedTraversalCannotComplete = failure {
+                throw AXOperationFailure.traversalCannotComplete
+            }
             return AXElementToken(raw: focusedObject)
         }
 
         func selectedText(of element: AXElementToken) throws -> String {
             record("selected text")
             if case .text(let failure) = failure { throw failure }
-            return "synthetic text"
+            if case .textAndMarkerUnavailable = failure {
+                throw AXOperationFailure.unavailable
+            }
+            if case .focusedWithoutSelectionWithDescendantFallback = failure,
+               element.identifier == ObjectIdentifier(focusedObject) {
+                throw AXOperationFailure.unavailable
+            }
+            if case .focusedWithoutSelectionWithChildCannotCompleteThenExhausted = failure,
+               element.identifier == ObjectIdentifier(focusedObject) {
+                throw AXOperationFailure.unavailable
+            }
+            if case .focusedWithoutSelectionWithApplicationWindowsCannotComplete = failure,
+               element.identifier == ObjectIdentifier(focusedObject) {
+                throw AXOperationFailure.unavailable
+            }
+            return selectedText
+        }
+
+        func selectedTextFromTextMarkerRange(
+            of element: AXElementToken
+        ) throws -> String {
+            record("selected text marker range")
+            if case .textMarker(let failure) = failure { throw failure }
+            if case .textAndMarkerUnavailable = failure {
+                throw AXOperationFailure.unavailable
+            }
+            if case .focusedWithoutSelectionWithDescendantFallback = failure,
+               element.identifier == ObjectIdentifier(focusedObject) {
+                throw AXOperationFailure.unavailable
+            }
+            if case .focusedWithoutSelectionWithChildCannotCompleteThenExhausted = failure,
+               element.identifier == ObjectIdentifier(focusedObject) {
+                throw AXOperationFailure.unavailable
+            }
+            if case .focusedWithoutSelectionWithApplicationWindowsCannotComplete = failure,
+               element.identifier == ObjectIdentifier(focusedObject) {
+                throw AXOperationFailure.unavailable
+            }
+            return "synthetic marker text"
+        }
+
+        func selectedTextFromValueRange(
+            of element: AXElementToken
+        ) throws -> String {
+            record("selected text value range")
+            if case .focusedWithoutSelectionWithDescendantFallback = failure,
+               element.identifier == ObjectIdentifier(focusedObject) {
+                throw AXOperationFailure.unavailable
+            }
+            if case .focusedWithoutSelectionWithChildCannotCompleteThenExhausted = failure,
+               element.identifier == ObjectIdentifier(focusedObject) {
+                throw AXOperationFailure.unavailable
+            }
+            if case .focusedWithoutSelectionWithApplicationWindowsCannotComplete = failure,
+               element.identifier == ObjectIdentifier(focusedObject) {
+                throw AXOperationFailure.unavailable
+            }
+            return "synthetic value range text"
         }
 
         func selectedBoundsTopLeftGlobal(
@@ -246,9 +395,284 @@ final class AccessibilitySelectionReaderTests: XCTestCase {
         ))
         XCTAssertEqual(system.events, [
             "trusted", "make application", "timeout application",
-            "focused element", "timeout focused", "selected text",
+            "enable manual accessibility", "focused element", "timeout focused", "selected text",
             "selected bounds"
         ])
+    }
+
+    func testUnsupportedManualAccessibilityDoesNotBlockNativeSelectionRead() throws {
+        let system = StubAXSystem(failure: .manualAccessibilityUnavailable)
+
+        let material = try SystemAXClient(system: system).readSelection(pid: 42)
+
+        XCTAssertEqual(material.text, "synthetic text")
+        XCTAssertEqual(system.events, [
+            "trusted", "make application", "timeout application",
+            "enable manual accessibility", "focused element", "timeout focused",
+            "selected text", "selected bounds",
+        ])
+    }
+
+    func testSystemClientFallsBackToWebTextMarkerRangeWhenSelectedTextIsUnsupported() throws {
+        let system = StubAXSystem(failure: .text(.unavailable))
+
+        let material = try SystemAXClient(system: system).readSelection(pid: 42)
+
+        XCTAssertEqual(material, AXSelectionMaterial(
+            text: "synthetic marker text",
+            displayRect: nil
+        ))
+        XCTAssertEqual(system.events, [
+            "trusted", "make application", "timeout application",
+            "enable manual accessibility", "focused element", "timeout focused", "selected text",
+            "selected text marker range", "selected bounds",
+        ])
+    }
+
+    func testSystemClientFallsBackToTextMarkerRangeWhenSelectedTextIsEmpty() throws {
+        let system = StubAXSystem(selectedText: "")
+
+        let material = try SystemAXClient(system: system).readSelection(pid: 42)
+
+        XCTAssertEqual(material.text, "synthetic marker text")
+        XCTAssertEqual(system.events, [
+            "trusted", "make application", "timeout application",
+            "enable manual accessibility", "focused element", "timeout focused", "selected text",
+            "selected text marker range", "selected bounds",
+        ])
+    }
+
+    func testSystemClientFallsBackToSelectedDescendantWhenFocusedElementIsUnavailable() throws {
+        let system = StubAXSystem(failure: .focusedWithSelectionFallback)
+
+        let material = try SystemAXClient(system: system).readSelection(pid: 42)
+
+        XCTAssertEqual(material.text, "synthetic text")
+        XCTAssertEqual(system.events, [
+            "trusted", "make application", "timeout application",
+            "enable manual accessibility", "focused element", "system wide focused element",
+            "selection element fallback", "timeout focused",
+            "selected text", "selected bounds",
+        ])
+    }
+
+    func testSystemClientUsesSameProcessSystemWideFocusBeforeTreeSearch() throws {
+        let system = StubAXSystem(failure: .focusedWithSystemWideFallback)
+
+        let material = try SystemAXClient(system: system).readSelection(pid: 42)
+
+        XCTAssertEqual(material.text, "synthetic text")
+        XCTAssertEqual(system.events, [
+            "trusted", "make application", "timeout application",
+            "enable manual accessibility", "focused element", "system wide focused element", "timeout focused",
+            "selected text", "selected bounds",
+        ])
+    }
+
+    func testSystemClientTraversesSelectionTreeWhenFocusedElementHasNoSelectionAttributes() throws {
+        let system = StubAXSystem(
+            failure: .focusedWithoutSelectionWithDescendantFallback
+        )
+
+        let material = try SystemAXClient(system: system).readSelection(pid: 42)
+
+        XCTAssertEqual(material.text, "synthetic text")
+        XCTAssertEqual(system.events, [
+            "trusted", "make application", "timeout application",
+            "enable manual accessibility", "focused element", "timeout focused",
+            "selected text", "selected text marker range", "selected text value range",
+            "selection element fallback", "timeout focused", "selected text", "selected bounds",
+        ])
+    }
+
+    func testSystemClientReportsClosedAXStageDiagnostics() throws {
+        let focusedFallbackRecorder = DiagnosticRecorder()
+        let focusedFallbackSystem = StubAXSystem(
+            failure: .focusedWithSelectionFallback
+        )
+        _ = try SystemAXClient(
+            system: focusedFallbackSystem,
+            diagnosticHandler: focusedFallbackRecorder.record
+        ).readSelection(pid: 42)
+        XCTAssertEqual(focusedFallbackRecorder.events, [
+            .focusedLookupApplicationUnsupported,
+            .focusedLookupSystemWideUnsupported,
+            .focusedLookupDescendantSucceeded,
+            .descendantTraversalSucceeded,
+            .directSelectionSucceeded,
+        ])
+
+        let markerRecorder = DiagnosticRecorder()
+        let markerSystem = StubAXSystem(failure: .text(.unavailable))
+        _ = try SystemAXClient(
+            system: markerSystem,
+            diagnosticHandler: markerRecorder.record
+        ).readSelection(pid: 42)
+        XCTAssertEqual(markerRecorder.events, [
+            .focusedLookupApplicationSucceeded,
+            .directSelectionUnsupported,
+            .markerSelectionSucceeded,
+        ])
+
+        let emptyRecorder = DiagnosticRecorder()
+        let emptySystem = StubAXSystem(selectedText: "")
+        _ = try SystemAXClient(
+            system: emptySystem,
+            diagnosticHandler: emptyRecorder.record
+        ).readSelection(pid: 42)
+        XCTAssertEqual(emptyRecorder.events, [
+            .focusedLookupApplicationSucceeded,
+            .directSelectionEmpty,
+            .markerSelectionSucceeded,
+        ])
+
+        let cannotCompleteRecorder = DiagnosticRecorder()
+        let cannotCompleteSystem = StubAXSystem(
+            failure: .textMarker(.cannotComplete),
+            selectedText: ""
+        )
+        XCTAssertThrowsError(
+            try SystemAXClient(
+                system: cannotCompleteSystem,
+                diagnosticHandler: cannotCompleteRecorder.record
+            ).readSelection(pid: 42)
+        )
+        XCTAssertEqual(cannotCompleteRecorder.events, [
+            .focusedLookupApplicationSucceeded,
+            .directSelectionEmpty,
+            .markerSelectionCannotComplete,
+        ])
+
+        for (failure, expected) in [
+            (
+                StubAXSystem.FailurePoint.focusedTraversalExhausted,
+                [
+                    SelectionAXDiagnostic.focusedLookupApplicationUnsupported,
+                    .focusedLookupSystemWideUnsupported,
+                    .focusedLookupDescendantUnsupported,
+                    .descendantTraversalExhausted,
+                ]
+            ),
+            (
+                StubAXSystem.FailurePoint.focusedTraversalCannotComplete,
+                [
+                    SelectionAXDiagnostic.focusedLookupApplicationUnsupported,
+                    .focusedLookupSystemWideUnsupported,
+                    .focusedLookupDescendantCannotComplete,
+                    .descendantTraversalCannotComplete,
+                ]
+            ),
+        ] as [(StubAXSystem.FailurePoint, [SelectionAXDiagnostic])] {
+            let recorder = DiagnosticRecorder()
+            let system = StubAXSystem(failure: failure)
+            XCTAssertThrowsError(
+                try SystemAXClient(
+                    system: system,
+                    diagnosticHandler: recorder.record
+                ).readSelection(pid: 42)
+            )
+            XCTAssertEqual(recorder.events, expected)
+        }
+    }
+
+    func testChildTraversalCannotCompleteThenExhaustionPreservesUnsupportedOutcome() async throws {
+        let recorder = DiagnosticRecorder()
+        let system = StubAXSystem(
+            failure: .focusedWithoutSelectionWithChildCannotCompleteThenExhausted,
+            traversalDiagnosticHandler: recorder.record
+        )
+        let context = ForegroundApplicationContext(
+            application: ApplicationIdentity(
+                bundleIdentifier: "invalid.example.ax",
+                displayName: "Fixture"
+            ),
+            processIdentifier: 42,
+            activationSequence: 1
+        )
+
+        let actual = await AccessibilitySelectionReader(
+            client: SystemAXClient(
+                system: system,
+                diagnosticHandler: recorder.record
+            )
+        ).read(context: context)
+
+        XCTAssertEqual(actual, .failure(.unsupportedApplication))
+        XCTAssertEqual(recorder.events, [
+            .focusedLookupApplicationSucceeded,
+            .directSelectionUnsupported,
+            .markerSelectionUnsupported,
+            .valueSelectionUnsupported,
+            .descendantTraversalCannotComplete,
+            .focusedLookupDescendantUnsupported,
+            .descendantTraversalExhausted,
+        ])
+    }
+
+    func testApplicationWindowsCannotCompletePreservesTimeoutOutcome() async throws {
+        let recorder = DiagnosticRecorder()
+        let system = StubAXSystem(
+            failure: .focusedWithoutSelectionWithApplicationWindowsCannotComplete,
+            traversalDiagnosticHandler: recorder.record
+        )
+        let context = ForegroundApplicationContext(
+            application: ApplicationIdentity(
+                bundleIdentifier: "invalid.example.ax",
+                displayName: "Fixture"
+            ),
+            processIdentifier: 42,
+            activationSequence: 1
+        )
+
+        let actual = await AccessibilitySelectionReader(
+            client: SystemAXClient(
+                system: system,
+                diagnosticHandler: recorder.record
+            )
+        ).read(context: context)
+
+        XCTAssertEqual(actual, .failure(.selectionReadTimedOut))
+        XCTAssertEqual(recorder.events, [
+            .focusedLookupApplicationSucceeded,
+            .directSelectionUnsupported,
+            .markerSelectionUnsupported,
+            .valueSelectionUnsupported,
+            .descendantTraversalCannotComplete,
+            .focusedLookupDescendantCannotComplete,
+            .descendantTraversalCannotComplete,
+        ])
+    }
+
+    func testSystemClientFallsBackToValueRangeAfterDirectAndMarkerReadsAreUnavailable() throws {
+        let system = StubAXSystem(failure: .textAndMarkerUnavailable)
+
+        let material = try SystemAXClient(system: system).readSelection(pid: 42)
+
+        XCTAssertEqual(material.text, "synthetic value range text")
+        XCTAssertEqual(system.events, [
+            "trusted", "make application", "timeout application",
+            "enable manual accessibility", "focused element", "timeout focused", "selected text",
+            "selected text marker range", "selected text value range",
+            "selected bounds",
+        ])
+    }
+
+    func testRealSystemCharacterizationReadsControllerPreparedWebSelection() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["GLIDETRANSLATE_RUN_REAL_AX_CHARACTERIZATION"] == "1" else {
+            throw XCTSkip("PLANNED_SKIP: controller-owned real Accessibility characterization")
+        }
+        let expected = try XCTUnwrap(
+            environment["GLIDETRANSLATE_REAL_AX_EXPECTED_MARKER"]
+        )
+        let pidText = try XCTUnwrap(environment["GLIDETRANSLATE_REAL_AX_PID"])
+        let pid = try XCTUnwrap(pid_t(pidText))
+        XCTAssertFalse(expected.isEmpty)
+        XCTAssertLessThanOrEqual(expected.count, 2_000)
+
+        let material = try SystemAXClient().readSelection(pid: pid)
+
+        XCTAssertEqual(material.text, expected, "real AX selection must match the synthetic marker")
     }
 
     func testSystemClientMapsPermissionLossDuringMessaging() {

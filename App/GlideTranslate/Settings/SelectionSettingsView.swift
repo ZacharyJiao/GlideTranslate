@@ -67,6 +67,18 @@ struct SelectionSettingsView: View {
                     }
                 }
                 .accessibilityIdentifier("selection.applications.add")
+                if viewModel.snapshot.generalAutomaticApplications.contains(where: {
+                    $0.bundleIdentifier == "com.microsoft.VSCode"
+                }) {
+                    Text("selection.applications.vscode.accessibilityNote")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Link(
+                        destination: URL(string: "vscode://settings/editor.accessibilitySupport")!
+                    ) {
+                        Text("selection.applications.vscode.openSettings")
+                    }
+                }
             }
             .accessibilityIdentifier("selection.applications")
 

@@ -326,6 +326,71 @@ final class SystemSelectionPipelineTests: XCTestCase {
         XCTAssertTrue(manual.isAuthorized)
     }
 
+    func testSyntheticChromiumBodyTraversesFullAuthorizationPipelineForAutomaticAndShortcut() async {
+        let chrome = ApplicationIdentity(
+            bundleIdentifier: "com.google.Chrome",
+            displayName: "Google Chrome"
+        )
+        let context = ForegroundApplicationContext(
+            application: chrome,
+            processIdentifier: 4242,
+            activationSequence: 17
+        )
+        let expected = ProviderDestinationSnapshot.fixture()
+        let options = TranslationOptionsSnapshot.fixture()
+        let policy = CapturePolicySnapshot(
+            automaticCaptureEnabled: true,
+            mouseSelectionEnabled: true,
+            keyboardSelectionEnabled: false,
+            generalAllowlist: [chrome],
+            offDeviceAllowlist: [chrome],
+            clipboardFallbackEnabled: false,
+            selectionDebounceMilliseconds: 0,
+            selectionCharacterLimit: 2_000
+        )
+        let foreground = StubForegroundReader([.success(context)])
+        let system = StubSystemReader(result: .success(CapturedSelection(
+            text: "synthetic chromium body marker",
+            displayRect: nil
+        )))
+        let clipboard = StubClipboardReader(result: .failure(.noValidSelection))
+        let snapshot = StubSnapshotReader(expected)
+        let gate = DefaultSelectionAuthorizationGate(
+            foregroundReader: foreground,
+            systemReader: system,
+            clipboardReader: clipboard,
+            snapshotReader: snapshot,
+            selectionFilter: SelectionFilter(limit: 2_000),
+            duplicateChecker: DuplicateSuppressor()
+        )
+        let pipeline = SystemSelectionPipeline(
+            foregroundReader: foreground,
+            gate: gate,
+            debouncer: SelectionDebouncer(
+                delay: .zero,
+                clock: ManualAppClock()
+            )
+        )
+
+        let automatic = await pipeline.process(
+            trigger: .mouse,
+            options: options,
+            policy: policy,
+            provider: expected
+        )
+        let shortcut = await pipeline.process(
+            trigger: .shortcut,
+            options: options,
+            policy: policy,
+            provider: expected
+        )
+
+        XCTAssertTrue(automatic.isAuthorized)
+        XCTAssertTrue(shortcut.isAuthorized)
+        XCTAssertEqual(system.count.value, 2)
+        XCTAssertEqual(snapshot.count.value, 2)
+    }
+
     func testEveryFilterAndDuplicateRejectionStopsBeforeSnapshotAndMint() async {
         let rejected = [
             "",

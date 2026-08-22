@@ -13,6 +13,10 @@ protocol SettingsAccessibilityClient: Sendable {
 
 @MainActor
 struct SystemSettingsAccessibilityClient: SettingsAccessibilityClient {
+    static let settingsURL = URL(
+        string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Accessibility"
+    )!
+
     func status() -> SettingsAccessibilityStatus {
         AXIsProcessTrusted() ? .granted : .denied
     }
@@ -24,10 +28,7 @@ struct SystemSettingsAccessibilityClient: SettingsAccessibilityClient {
     }
 
     func openSystemSettings() {
-        guard let url = URL(
-            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-        ) else { return }
-        NSWorkspace.shared.open(url)
+        NSWorkspace.shared.open(Self.settingsURL)
     }
 }
 

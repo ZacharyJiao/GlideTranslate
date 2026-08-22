@@ -6,6 +6,15 @@ import XCTest
 
 final class GlobalShortcutTests: XCTestCase {
     private final class CapturedOwner: @unchecked Sendable {}
+
+    private final class BoundaryOrderSpy: @unchecked Sendable {
+        private let lock = NSLock()
+        private var storage: [String] = []
+
+        var values: [String] { lock.withLock { storage } }
+        func record(_ value: String) { lock.withLock { storage.append(value) } }
+    }
+
     private final class StubCarbonHotKeyClient: CarbonHotKeyClient, @unchecked Sendable {
         private let lock = NSLock()
         var registrationStatus: OSStatus
@@ -94,7 +103,25 @@ final class GlobalShortcutTests: XCTestCase {
         let values = carbon.snapshot
         XCTAssertEqual(values.0, UInt32(kVK_ANSI_D))
         XCTAssertEqual(values.1, UInt32(optionKey | shiftKey))
-        XCTAssertEqual(values.2, UInt32(kEventHotKeyExclusive))
+        XCTAssertEqual(
+            values.2,
+            UInt32(kEventHotKeyExclusive)
+        )
+    }
+
+    func testMatchedCarbonCallbackReportsBoundaryBeforeEmission() async throws {
+        let carbon = StubCarbonHotKeyClient(status: noErr)
+        let order = BoundaryOrderSpy()
+        let registrar = GlobalShortcutRegistrar(
+            client: carbon,
+            emit: { order.record("emit") },
+            onShortcutReceived: { order.record("received") }
+        )
+        try await registrar.register(.defaultOptionShiftD)
+
+        carbon.invokeCallback()
+
+        XCTAssertEqual(order.values, ["received", "emit"])
     }
 
     func testRecordedModifiersConvertWithoutChangingDescriptor() throws {

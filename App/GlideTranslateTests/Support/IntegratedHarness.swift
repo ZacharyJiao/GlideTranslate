@@ -32,7 +32,8 @@ enum IntegratedFailureCase: CaseIterable, Sendable {
 
 extension IntegratedFailureCase {
     var expectedNextAction: SafeNextAction {
-        switch self {
+        if isSilentAutomaticCaptureFailure { return .none }
+        return switch self {
         case .accessibilityDenied: .openAccessibilitySettingsOrUseManualInput
         case .automaticCapturePaused: .resumeAutomaticOrUseShortcut
         case .applicationNotAllowed: .enableApplicationOrUseShortcut
@@ -51,6 +52,19 @@ extension IntegratedFailureCase {
         case .historyDisabled: .explainHistoryDisabled
         case .applicationExcluded: .explainApplicationExcluded
         case .historyUnrecoverable: .deleteAndRestartHistory
+        }
+    }
+
+    var isSilentAutomaticCaptureFailure: Bool {
+        switch self {
+        case .accessibilityDenied,
+             .automaticCapturePaused,
+             .applicationNotAllowed,
+             .offDeviceApplicationNotAllowed,
+             .noValidSelection:
+            true
+        default:
+            false
         }
     }
 
@@ -459,6 +473,10 @@ final class IntegratedHarness {
             guard let outcome = await systemProbe.capturedOutcome,
                   case .rejected(.cancelled) = outcome else { return false }
             return feedback.presentations.isEmpty
+        case _ where failure.isSilentAutomaticCaptureFailure:
+            guard let outcome = await systemProbe.capturedOutcome,
+                  case .rejected = outcome else { return false }
+            return feedback.presentations.isEmpty
         case .unsafeClipboardState:
             guard let outcome = await systemProbe.capturedOutcome,
                   case .manualInputRequired = outcome else { return false }
@@ -475,9 +493,15 @@ final class IntegratedHarness {
         var health: Set<ComponentHealthCategory> = []
         for record in records {
             switch record {
+            case .captureTrigger, .shortcutReceived:
+                break
             case let .capture(outcome):
                 counts[.captureRejected, default: 0] += outcome == .succeeded ? 0 : 1
                 health.insert(outcome == .succeeded ? .captureOperational : .permissionLimited)
+            case .captureFailure:
+                break
+            case .selectionAX:
+                break
             case .providerHealth, .providerDiagnostic:
                 health.insert(.providerOperational)
             case let .translation(failure, _):

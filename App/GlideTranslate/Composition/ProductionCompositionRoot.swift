@@ -6,6 +6,7 @@ import PrivacyStorage
 import SelectionCapture
 import ServiceManagement
 import SharedSupport
+import SwiftUI
 import TranslationCore
 
 enum CompositionComponent: CaseIterable, Equatable, Hashable, Sendable {
@@ -121,13 +122,82 @@ struct ProductionTriggerAdapters {
     let makeShortcutRegistrar: @Sendable (
         @escaping @Sendable () -> Void
     ) -> any GlobalShortcutRegistering
+    private let makeMonitorWithBoundary: (@Sendable (
+        @escaping @Sendable (CaptureTrigger) -> Void,
+        @escaping @Sendable (CaptureTrigger) -> Void
+    ) -> any SelectionTriggerMonitoring)?
+    private let makeShortcutRegistrarWithBoundary: (@Sendable (
+        @escaping @Sendable () -> Void,
+        @escaping @Sendable () -> Void
+    ) -> any GlobalShortcutRegistering)?
+
+    init(
+        makeMonitor: @escaping @Sendable (
+            @escaping @Sendable (CaptureTrigger) -> Void
+        ) -> any SelectionTriggerMonitoring,
+        makeShortcutRegistrar: @escaping @Sendable (
+            @escaping @Sendable () -> Void
+        ) -> any GlobalShortcutRegistering,
+        makeMonitorWithBoundary: (@Sendable (
+            @escaping @Sendable (CaptureTrigger) -> Void,
+            @escaping @Sendable (CaptureTrigger) -> Void
+        ) -> any SelectionTriggerMonitoring)? = nil,
+        makeShortcutRegistrarWithBoundary: (@Sendable (
+            @escaping @Sendable () -> Void,
+            @escaping @Sendable () -> Void
+        ) -> any GlobalShortcutRegistering)? = nil
+    ) {
+        self.makeMonitor = makeMonitor
+        self.makeShortcutRegistrar = makeShortcutRegistrar
+        self.makeMonitorWithBoundary = makeMonitorWithBoundary
+        self.makeShortcutRegistrarWithBoundary =
+            makeShortcutRegistrarWithBoundary
+    }
 
     static let system = Self(
         makeMonitor: { SelectionCaptureFactory.makeTriggerMonitor(emit: $0) },
         makeShortcutRegistrar: {
             SelectionCaptureFactory.makeShortcutRegistrar(emit: $0)
+        },
+        makeMonitorWithBoundary: { emit, onTriggerReceived in
+            SelectionCaptureFactory.makeTriggerMonitor(
+                emit: emit,
+                onTriggerReceived: onTriggerReceived
+            )
+        },
+        makeShortcutRegistrarWithBoundary: { emit, onShortcutReceived in
+            SelectionCaptureFactory.makeShortcutRegistrar(
+                emit: emit,
+                onShortcutReceived: onShortcutReceived
+            )
         }
     )
+
+    func makeMonitor(
+        emit: @escaping @Sendable (CaptureTrigger) -> Void,
+        onBoundary: @escaping @Sendable (CaptureTrigger) -> Void
+    ) -> any SelectionTriggerMonitoring {
+        if let makeMonitorWithBoundary {
+            return makeMonitorWithBoundary(emit, onBoundary)
+        }
+        return makeMonitor { trigger in
+            onBoundary(trigger)
+            emit(trigger)
+        }
+    }
+
+    func makeShortcutRegistrar(
+        emit: @escaping @Sendable () -> Void,
+        onBoundary: @escaping @Sendable () -> Void
+    ) -> any GlobalShortcutRegistering {
+        if let makeShortcutRegistrarWithBoundary {
+            return makeShortcutRegistrarWithBoundary(emit, onBoundary)
+        }
+        return makeShortcutRegistrar {
+            onBoundary()
+            emit()
+        }
+    }
 }
 
 protocol ProductionCoreBuilding: Sendable {
@@ -137,6 +207,31 @@ protocol ProductionCoreBuilding: Sendable {
         clock: any AppClock,
         diagnostics: any ProviderDiagnosticReporting
     ) async throws -> ProductionCoreServices
+
+    func build(
+        applicationSupportDirectory: URL,
+        keychainServicePrefix: String,
+        clock: any AppClock,
+        diagnostics: any ProviderDiagnosticReporting,
+        selectionDiagnosticHandler: @escaping SelectionAXDiagnosticHandler
+    ) async throws -> ProductionCoreServices
+}
+
+extension ProductionCoreBuilding {
+    func build(
+        applicationSupportDirectory: URL,
+        keychainServicePrefix: String,
+        clock: any AppClock,
+        diagnostics: any ProviderDiagnosticReporting,
+        selectionDiagnosticHandler: @escaping SelectionAXDiagnosticHandler
+    ) async throws -> ProductionCoreServices {
+        try await build(
+            applicationSupportDirectory: applicationSupportDirectory,
+            keychainServicePrefix: keychainServicePrefix,
+            clock: clock,
+            diagnostics: diagnostics
+        )
+    }
 }
 
 struct SystemProductionCoreBuilder: ProductionCoreBuilding {
@@ -145,6 +240,22 @@ struct SystemProductionCoreBuilder: ProductionCoreBuilding {
         keychainServicePrefix: String,
         clock: any AppClock,
         diagnostics: any ProviderDiagnosticReporting
+    ) async throws -> ProductionCoreServices {
+        try await build(
+            applicationSupportDirectory: applicationSupportDirectory,
+            keychainServicePrefix: keychainServicePrefix,
+            clock: clock,
+            diagnostics: diagnostics,
+            selectionDiagnosticHandler: { _ in }
+        )
+    }
+
+    func build(
+        applicationSupportDirectory: URL,
+        keychainServicePrefix: String,
+        clock: any AppClock,
+        diagnostics: any ProviderDiagnosticReporting,
+        selectionDiagnosticHandler: @escaping SelectionAXDiagnosticHandler
     ) async throws -> ProductionCoreServices {
         let storage = try await PrivacyStorageFactory.make(
             configuration: .init(
@@ -168,7 +279,8 @@ struct SystemProductionCoreBuilder: ProductionCoreBuilding {
             )
             let capture = SelectionCaptureFactory.makeAuthorizationServices(
                 snapshotReader: providers.preflight,
-                clock: clock
+                clock: clock,
+                diagnosticHandler: selectionDiagnosticHandler
             )
         return ProductionCoreServices(
                 storage: ProductionStorageFacades(
@@ -221,9 +333,14 @@ final class ProductionCompositionRoot {
     }
 
     static func developmentFixture() -> ProductionCompositionRoot {
-        ProductionCompositionRoot(
-            sceneState: .development(),
-            settingsViewModel: .development(),
+        let sceneState = AppSceneState.development()
+        let settings = SettingsViewModel.development()
+        sceneState.settingsPresenter.installContent {
+            AnyView(SettingsRootView(viewModel: settings))
+        }
+        return ProductionCompositionRoot(
+            sceneState: sceneState,
+            settingsViewModel: settings,
             constructionCounts: Dictionary(
                 uniqueKeysWithValues: CompositionComponent.allCases.map { ($0, 1) }
             )
@@ -270,7 +387,10 @@ final class ProductionCompositionRoot {
             applicationSupportDirectory: applicationSupportDirectory,
             keychainServicePrefix: bundleIdentifier,
             clock: clock,
-            diagnostics: AppProviderDiagnosticReporter(logger: safeLogger)
+            diagnostics: AppProviderDiagnosticReporter(logger: safeLogger),
+            selectionDiagnosticHandler: { diagnostic in
+                safeLogger.recordSelectionDiagnostic(diagnostic)
+            }
         )
         let storage = core.storage
         do {
@@ -290,12 +410,27 @@ final class ProductionCompositionRoot {
 
         let triggerRelay = ProductionTriggerRelay()
         let routingGate = ShortcutRoutingGate(enabled: true)
-        let monitor = triggerAdapters.makeMonitor { trigger in
-            triggerRelay.emit(trigger)
-        }
-        let shortcutRegistrar = triggerAdapters.makeShortcutRegistrar {
-            routingGate.routeIfEnabled { triggerRelay.emit(.shortcut) }
-        }
+        let monitor = triggerAdapters.makeMonitor(
+            emit: { trigger in triggerRelay.emit(trigger) },
+            onBoundary: { trigger in
+                switch trigger {
+                case .mouse:
+                    safeLogger.record(.captureTriggerReceived(.mouse))
+                case .keyboardSelection:
+                    safeLogger.record(.captureTriggerReceived(.keyboardSelection))
+                case .shortcut, .manualInput:
+                    break
+                }
+            }
+        )
+        let shortcutRegistrar = triggerAdapters.makeShortcutRegistrar(
+            emit: {
+                routingGate.routeIfEnabled { triggerRelay.emit(.shortcut) }
+            },
+            onBoundary: {
+                safeLogger.record(.shortcutReceived)
+            }
+        )
         let shortcutModel = ShortcutSettingsModel(
             registrar: shortcutRegistrar,
             currentDescriptor: snapshot.onboardingCompleted ? snapshot.shortcut : nil
@@ -449,6 +584,9 @@ final class ProductionCompositionRoot {
                 await runtimeProjection.refresh()
             }
         )
+        settingsPresenter.installContent {
+            AnyView(SettingsRootView(viewModel: settings))
+        }
         runtimeProjection.install(settings: settings)
         cacheController.install(settings: settings)
 

@@ -16,18 +16,22 @@ public struct SelectionCaptureServices: Sendable {
 public enum SelectionCaptureFactory {
     public static func makeAuthorizationServices(
         snapshotReader: any ProviderSnapshotReading,
-        clock: any AppClock = SystemAppClock()
+        clock: any AppClock = SystemAppClock(),
+        diagnosticHandler: @escaping SelectionAXDiagnosticHandler = { _ in }
     ) -> SelectionCaptureServices {
         let foregroundReader = DefaultForegroundApplicationReader()
         let gate = DefaultSelectionAuthorizationGate(
             foregroundReader: foregroundReader,
-            systemReader: AccessibilitySelectionReader(),
+            systemReader: AccessibilitySelectionReader(
+                diagnosticHandler: diagnosticHandler
+            ),
             clipboardReader: LazyShortcutClipboardReader(
                 factory: SystemShortcutClipboardReaderFactory(clock: clock)
             ),
             snapshotReader: snapshotReader,
             selectionFilter: SelectionFilter(limit: 2_000),
-            duplicateChecker: DuplicateSuppressor()
+            duplicateChecker: DuplicateSuppressor(),
+            diagnosticHandler: diagnosticHandler
         )
         let pipeline = SystemSelectionPipeline(
             foregroundReader: foregroundReader,
@@ -44,14 +48,22 @@ public enum SelectionCaptureFactory {
     }
 
     public static func makeTriggerMonitor(
-        emit: @escaping @Sendable (CaptureTrigger) -> Void
+        emit: @escaping @Sendable (CaptureTrigger) -> Void,
+        onTriggerReceived: @escaping @Sendable (CaptureTrigger) -> Void = { _ in }
     ) -> any SelectionTriggerMonitoring {
-        SelectionEventMonitor(emit: emit)
+        SelectionEventMonitor(
+            emit: emit,
+            onTriggerReceived: onTriggerReceived
+        )
     }
 
     public static func makeShortcutRegistrar(
-        emit: @escaping @Sendable () -> Void
+        emit: @escaping @Sendable () -> Void,
+        onShortcutReceived: @escaping @Sendable () -> Void = {}
     ) -> any GlobalShortcutRegistering {
-        GlobalShortcutRegistrar(emit: emit)
+        GlobalShortcutRegistrar(
+            emit: emit,
+            onShortcutReceived: onShortcutReceived
+        )
     }
 }

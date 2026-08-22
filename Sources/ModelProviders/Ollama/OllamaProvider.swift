@@ -10,6 +10,7 @@ private struct OllamaChatRequest: Encodable {
     let model: String
     let messages: [Message]
     let stream: Bool
+    let think: Bool
 }
 
 private struct OllamaTagsResponse: Decodable {
@@ -152,7 +153,8 @@ package struct OllamaProvider: Sendable {
                     .init(role: "system", content: request.instruction),
                     .init(role: "user", content: request.userContent)
                 ],
-                stream: true
+                stream: true,
+                think: false
             ))
         } catch {
             throw SanitizedFailure.invalidProviderConfiguration

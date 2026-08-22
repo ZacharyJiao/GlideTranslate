@@ -253,6 +253,7 @@ final class OllamaProviderTests: XCTestCase {
             with: Data(wire[range.upperBound...])
         ) as? [String: Any])
         XCTAssertEqual(json["stream"] as? Bool, true)
+        XCTAssertEqual(json["think"] as? Bool, false)
         let messages = try XCTUnwrap(json["messages"] as? [[String: String]])
         XCTAssertEqual(messages, [
             ["role": "system", "content": "instruction"],

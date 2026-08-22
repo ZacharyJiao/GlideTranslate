@@ -11,12 +11,23 @@ final class TriggerObservationTests: XCTestCase {
         func record(_ trigger: CaptureTrigger) { lock.withLock { storage.append(trigger) } }
     }
 
+    private final class BoundaryOrderSpy: @unchecked Sendable {
+        private let lock = NSLock()
+        private var storage: [String] = []
+
+        var values: [String] { lock.withLock { storage } }
+        func record(_ value: String) { lock.withLock { storage.append(value) } }
+    }
+
     private final class MonitorClientSpy: SelectionEventMonitorClient, @unchecked Sendable {
         private let lock = NSLock()
         private var nextID = 0
         private(set) var mouseInstalls = 0
         private(set) var keyboardInstalls = 0
         private(set) var removals = 0
+        private var mouseHandler: (@Sendable () -> Void)?
+        private var keyHandler:
+            (@Sendable (UInt16, NSEvent.ModifierFlags) -> Void)?
         var failKeyboardInstall = false
         var blockMouseInstall = false
         let mouseInstallEntered = DispatchSemaphore(value: 0)
@@ -27,6 +38,7 @@ final class TriggerObservationTests: XCTestCase {
         ) -> SelectionEventMonitorToken? {
             let token = lock.withLock {
                 mouseInstalls += 1
+                mouseHandler = handler
                 nextID += 1
                 return SelectionEventMonitorToken(id: nextID)
             }
@@ -42,6 +54,7 @@ final class TriggerObservationTests: XCTestCase {
         ) -> SelectionEventMonitorToken? {
             lock.withLock {
                 keyboardInstalls += 1
+                keyHandler = handler
                 if failKeyboardInstall { return nil }
                 nextID += 1
                 return SelectionEventMonitorToken(id: nextID)
@@ -54,6 +67,17 @@ final class TriggerObservationTests: XCTestCase {
 
         var counts: (Int, Int, Int) {
             lock.withLock { (mouseInstalls, keyboardInstalls, removals) }
+        }
+
+        func invokeMouse() {
+            lock.withLock { mouseHandler }?()
+        }
+
+        func invokeKey(
+            code: UInt16,
+            flags: NSEvent.ModifierFlags
+        ) {
+            lock.withLock { keyHandler }?(code, flags)
         }
     }
 
@@ -101,6 +125,32 @@ final class TriggerObservationTests: XCTestCase {
         )
         await monitor.handle(.programmaticSelectionChanged, keyboardEnabled: true)
         XCTAssertEqual(spy.values, [.mouse, .keyboardSelection])
+    }
+
+    func testGlobalCallbacksReportBoundaryBeforeTriggerEmission() async throws {
+        let client = MonitorClientSpy()
+        let order = BoundaryOrderSpy()
+        let monitor = SelectionEventMonitor(
+            client: client,
+            emit: { trigger in
+                order.record("emit.\(String(describing: trigger))")
+            },
+            onTriggerReceived: { trigger in
+                order.record("received.\(String(describing: trigger))")
+            }
+        )
+        try await monitor.start(mouseEnabled: true, keyboardEnabled: true)
+
+        client.invokeMouse()
+        client.invokeKey(code: 123, flags: [.shift])
+        client.invokeKey(code: 0, flags: [.shift])
+
+        XCTAssertEqual(order.values, [
+            "received.mouse",
+            "emit.mouse",
+            "received.keyboardSelection",
+            "emit.keyboardSelection"
+        ])
     }
 
     func testStartUpdateStopOwnsOnlyEnabledMonitors() async throws {

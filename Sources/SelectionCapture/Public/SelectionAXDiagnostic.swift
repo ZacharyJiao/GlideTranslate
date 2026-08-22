@@ -1,0 +1,45 @@
+public enum SelectionAXDiagnostic: String, CaseIterable, Equatable, Sendable {
+    case focusedLookupApplicationSucceeded = "focused_lookup_application_succeeded"
+    case focusedLookupApplicationUnsupported = "focused_lookup_application_unsupported"
+    case focusedLookupApplicationCannotComplete = "focused_lookup_application_cannot_complete"
+    case focusedLookupApplicationPermission = "focused_lookup_application_permission"
+    case focusedLookupSystemWideSucceeded = "focused_lookup_system_wide_succeeded"
+    case focusedLookupSystemWideUnsupported = "focused_lookup_system_wide_unsupported"
+    case focusedLookupSystemWideCannotComplete = "focused_lookup_system_wide_cannot_complete"
+    case focusedLookupSystemWidePermission = "focused_lookup_system_wide_permission"
+    case focusedLookupDescendantSucceeded = "focused_lookup_descendant_succeeded"
+    case focusedLookupDescendantUnsupported = "focused_lookup_descendant_unsupported"
+    case focusedLookupDescendantCannotComplete = "focused_lookup_descendant_cannot_complete"
+    case focusedLookupDescendantPermission = "focused_lookup_descendant_permission"
+
+    case directSelectionSucceeded = "direct_selection_succeeded"
+    case directSelectionUnsupported = "direct_selection_unsupported"
+    case directSelectionEmpty = "direct_selection_empty"
+    case directSelectionCannotComplete = "direct_selection_cannot_complete"
+    case directSelectionPermission = "direct_selection_permission"
+    case markerSelectionSucceeded = "marker_selection_succeeded"
+    case markerSelectionUnsupported = "marker_selection_unsupported"
+    case markerSelectionEmpty = "marker_selection_empty"
+    case markerSelectionCannotComplete = "marker_selection_cannot_complete"
+    case markerSelectionPermission = "marker_selection_permission"
+    case valueSelectionSucceeded = "value_selection_succeeded"
+    case valueSelectionUnsupported = "value_selection_unsupported"
+    case valueSelectionEmpty = "value_selection_empty"
+    case valueSelectionCannotComplete = "value_selection_cannot_complete"
+    case valueSelectionPermission = "value_selection_permission"
+
+    case descendantTraversalSucceeded = "descendant_traversal_succeeded"
+    case descendantTraversalExhausted = "descendant_traversal_exhausted"
+    case descendantTraversalCannotComplete = "descendant_traversal_cannot_complete"
+    case descendantTraversalPermission = "descendant_traversal_permission"
+
+    case clipboardFallbackStarted = "clipboard_fallback_started"
+    case clipboardFallbackSucceeded = "clipboard_fallback_succeeded"
+    case clipboardFallbackNoValidSelection = "clipboard_fallback_no_valid_selection"
+    case clipboardFallbackUnsafe = "clipboard_fallback_unsafe"
+    case clipboardFallbackCancelled = "clipboard_fallback_cancelled"
+    case clipboardFallbackFailed = "clipboard_fallback_failed"
+}
+
+public typealias SelectionAXDiagnosticHandler =
+    @Sendable (SelectionAXDiagnostic) -> Void

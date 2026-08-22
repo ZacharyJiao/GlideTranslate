@@ -34,6 +34,7 @@ package enum ObservedSelectionEvent: Sendable {
 package actor SelectionEventMonitor: SelectionTriggerMonitoring {
     private let client: any SelectionEventMonitorClient
     private let emit: @Sendable (CaptureTrigger) -> Void
+    private let onTriggerReceived: @Sendable (CaptureTrigger) -> Void
     private let operationGate = LifecycleOperationGate()
     private var configuration: (mouse: Bool, keyboard: Bool)?
     private var mouseToken: SelectionEventMonitorToken?
@@ -41,10 +42,12 @@ package actor SelectionEventMonitor: SelectionTriggerMonitoring {
 
     package init(
         client: any SelectionEventMonitorClient = SystemSelectionEventMonitorClient(),
-        emit: @escaping @Sendable (CaptureTrigger) -> Void
+        emit: @escaping @Sendable (CaptureTrigger) -> Void,
+        onTriggerReceived: @escaping @Sendable (CaptureTrigger) -> Void = { _ in }
     ) {
         self.client = client
         self.emit = emit
+        self.onTriggerReceived = onTriggerReceived
     }
 
     public func start(
@@ -64,8 +67,12 @@ package actor SelectionEventMonitor: SelectionTriggerMonitoring {
         if mouseEnabled {
             let client = self.client
             let emit = self.emit
+            let onTriggerReceived = self.onTriggerReceived
             guard let token = await MainActor.run(body: {
-                client.addMouseUpMonitor { emit(.mouse) }
+                client.addMouseUpMonitor {
+                    onTriggerReceived(.mouse)
+                    emit(.mouse)
+                }
             }) else {
                 throw SelectionMonitorFailure.unavailable
             }
@@ -74,12 +81,14 @@ package actor SelectionEventMonitor: SelectionTriggerMonitoring {
         if keyboardEnabled {
             let client = self.client
             let emit = self.emit
+            let onTriggerReceived = self.onTriggerReceived
             guard let token = await MainActor.run(body: {
                 client.addKeyDownMonitor { code, flags in
                     guard KnownSelectionKey.classify(
                         keyCode: code,
                         flags: flags
                     ) != nil else { return }
+                    onTriggerReceived(.keyboardSelection)
                     emit(.keyboardSelection)
                 }
             }) else {

@@ -47,20 +47,31 @@ verified timeout, response-limit, HTTP-status, invalid-response, unavailable,
 cleanup, and signal categories without publishing a model name, service
 address, response body, or raw diagnostic.
 
-On 2026-08-16, the required synthetic shortcut-to-Accessibility-capture,
-native-stream, passive-panel, explicit-Copy, and history-off path passed with a
-locally installed model. The evidence records only categorical outcomes; the
-model, endpoint, selected text, prompt, result, and clipboard content are not
-published. Transient phase sampling was not independently complete, so the
-claim is limited to the observed end-to-end outcome rather than every internal
-state transition.
+A controller observation on 2026-08-16 reported a successful synthetic
+shortcut-to-Accessibility-capture, native-stream, passive-panel, explicit-Copy,
+and history-off path with a locally installed model. No independently
+inspectable record of that run is retained in the public tree, so it is treated
+as historical context rather than current release evidence. A release claim
+requires fresh categorical evidence without publishing the model, endpoint,
+selected text, prompt, result, or clipboard content.
 
 ## Manual compatibility evidence
 
-Application and Accessibility behavior requires the pending manual matrix.
-Until it is populated, [Compatibility](compatibility.md) remains **Release
-evidence pending**. `MANUAL_BLOCKED_GUI_SESSION`, `BLOCKED_MISSING_APP`, or
-another BLOCKED category is not a PASS.
+The [Compatibility](compatibility.md) matrix records the sanitized local manual
+evidence currently available. The complete A–J and bounds protocol was
+reported as passing for the seven non-Chrome required applications, and the
+later batched tester result marked Chrome's remaining local rows as passing.
+The same result covered VoiceOver traversal/language/streaming, physical
+second-display default/non-default scaling and boundary placement, and the
+required real local Ollama shortcut-to-stream/panel/Copy/history-off path. The
+current display-labelled ChatGPT/Codex surface remains documented outside the
+eight-row table as shortcut-clipboard only: automatic AX selection is
+unsupported, while explicit shortcut capture succeeds when the user-enabled
+clipboard fallback is active.
+
+The downloaded GitHub artifact/Finder quarantine path remains unverified and is
+not a release-pass claim. No local compatibility row remains blocked; synthetic
+tests are still not substituted for the categorical tester result.
 
 ## Remote and release evidence
 

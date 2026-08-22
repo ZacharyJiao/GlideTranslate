@@ -4269,6 +4269,38 @@
         }
       }
     },
+    "selection.applications.vscode.accessibilityNote": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VS Code's main editor exposes selected text only when Editor: Accessibility Support is On. Sidebar text does not require this setting."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VS Code 主编辑区仅在“编辑器: 辅助功能支持”设为“开启”时提供选中文本；侧边栏不受此设置影响。"
+          }
+        }
+      }
+    },
+    "selection.applications.vscode.openSettings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open this setting in VS Code"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 VS Code 中打开此设置"
+          }
+        }
+      }
+    },
     "selection.clipboardFallback": {
       "localizations": {
         "en": {

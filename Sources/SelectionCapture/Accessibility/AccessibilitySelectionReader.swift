@@ -31,6 +31,16 @@ package struct AccessibilitySelectionReader: SystemSelectionReading, Sendable {
         self.lane = lane
     }
 
+    package init(
+        diagnosticHandler: @escaping SelectionAXDiagnosticHandler,
+        lane: AXExecutionLane = AXExecutionLane()
+    ) {
+        self.init(
+            client: SystemAXClient(diagnosticHandler: diagnosticHandler),
+            lane: lane
+        )
+    }
+
     package func readSelection(
         from context: ForegroundApplicationContext
     ) async -> Result<CapturedSelection, SelectionAuthorizationFailure> {

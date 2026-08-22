@@ -32,6 +32,29 @@ final class SettingsEffectsTests: XCTestCase {
         case vaultApplicationsWrite(Set<ApplicationIdentity>)
     }
 
+    func testAccessibilitySettingsURLTargetsCurrentPrivacyPane() {
+        XCTAssertEqual(
+            SystemSettingsAccessibilityClient.settingsURL.absoluteString,
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Accessibility"
+        )
+    }
+
+    func testSettingsSidebarLabelsRefreshAfterUILanguageChange() async {
+        let fixture = Fixture(initialUILanguage: .simplifiedChinese)
+        let host = NSHostingView(rootView: SettingsRootView(viewModel: fixture.model))
+        host.frame = NSRect(x: 0, y: 0, width: 1_000, height: 640)
+        let window = hostingWindow(for: host)
+        defer { window.close() }
+        await settleRendering(in: window, host: host)
+        let chineseSidebar = try! XCTUnwrap(sidebarRendering(of: host))
+
+        await fixture.model.setUILanguage(.english)
+        await settleRendering(in: window, host: host)
+        let updatedSidebar = try! XCTUnwrap(sidebarRendering(of: host))
+
+        XCTAssertNotEqual(updatedSidebar, chineseSidebar)
+    }
+
     func testRenderingAllSectionsHasNoEffect() {
         let fixture = Fixture()
         for section in SettingsSection.allCases {
@@ -760,6 +783,38 @@ final class SettingsEffectsTests: XCTestCase {
         return nil
     }
 
+    private func sidebarRendering(of host: NSView) -> Data? {
+        let sidebarRect = NSRect(x: 0, y: 0, width: 300, height: host.bounds.height)
+        guard let representation = host.bitmapImageRepForCachingDisplay(in: sidebarRect) else {
+            return nil
+        }
+        host.cacheDisplay(in: sidebarRect, to: representation)
+        return representation.representation(using: .png, properties: [:])
+    }
+
+    private func hostingWindow(for host: NSView) -> NSWindow {
+        let window = NSWindow(
+            contentRect: host.frame,
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = host
+        window.orderFrontRegardless()
+        return window
+    }
+
+    private func settleRendering(in window: NSWindow, host: NSView) async {
+        await Task.yield()
+        try? await Task.sleep(for: .milliseconds(50))
+        window.layoutIfNeeded()
+        host.layoutSubtreeIfNeeded()
+        host.needsDisplay = true
+        window.contentView?.needsDisplay = true
+        window.displayIfNeeded()
+        host.displayIfNeeded()
+    }
+
     @MainActor
     private final class Fixture {
         let recorder = Recorder()
@@ -786,12 +841,15 @@ final class SettingsEffectsTests: XCTestCase {
             shortcutFailure: ShortcutRegistrationFailure? = nil,
             shortcutFailureOnce: Bool = false,
             initialProviders: [SettingsProviderDescriptor] = [],
+            initialUILanguage: ApplicationLanguage = .english,
             snapshotChanged:
                 (@MainActor @Sendable (PreferencesSnapshot) async -> Void)? = nil
         ) {
             let providerID = ProviderConfigurationID()
+            var initialSnapshot = PreferencesSnapshot.appFixture(providerID: providerID)
+            initialSnapshot.uiLanguage = initialUILanguage
             preferences = Preferences(
-                value: .appFixture(providerID: providerID),
+                value: initialSnapshot,
                 recorder: recorder
             )
             registrar = Registrar(

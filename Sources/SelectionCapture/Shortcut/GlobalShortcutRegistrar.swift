@@ -188,6 +188,7 @@ package enum CarbonModifierConverter {
 package actor GlobalShortcutRegistrar: GlobalShortcutRegistering {
     private let client: any CarbonHotKeyClient
     private let emit: @Sendable () -> Void
+    private let onShortcutReceived: @Sendable () -> Void
     private let operationGate = LifecycleOperationGate()
     private var handlerToken: CarbonEventHandlerToken?
     private var handlerActive = false
@@ -195,10 +196,12 @@ package actor GlobalShortcutRegistrar: GlobalShortcutRegistering {
 
     package init(
         client: any CarbonHotKeyClient = SystemCarbonHotKeyClient(),
-        emit: @escaping @Sendable () -> Void
+        emit: @escaping @Sendable () -> Void,
+        onShortcutReceived: @escaping @Sendable () -> Void = {}
     ) {
         self.client = client
         self.emit = emit
+        self.onShortcutReceived = onShortcutReceived
     }
 
     public func register(_ descriptor: ShortcutDescriptor) async throws {
@@ -230,8 +233,12 @@ package actor GlobalShortcutRegistrar: GlobalShortcutRegistering {
         var installedHandlerForAttempt = false
         if handlerToken == nil {
             let emit = self.emit
+            let onShortcutReceived = self.onShortcutReceived
             let (status, handlerToken) = await MainActor.run {
-                client.installHandler(emit)
+                client.installHandler {
+                    onShortcutReceived()
+                    emit()
+                }
             }
             guard status == noErr, let handlerToken else {
                 throw ShortcutRegistrationFailure.unavailable

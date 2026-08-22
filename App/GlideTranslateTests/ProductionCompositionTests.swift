@@ -419,21 +419,25 @@ final class ProductionCompositionTests: XCTestCase {
     }
 
     @MainActor
-    func testSettingsOpenRequestActivatesApplicationAfterOpeningWindow() {
-        let presenter = SettingsWindowPresenter()
-        var events: [String] = []
+    func testSettingsPresenterReusesOneOwnedWindowAcrossAllOpenRoutes() async {
+        let window = SettingsWindowFixture()
+        var factoryCount = 0
+        let presenter = SettingsWindowPresenter { _ in
+            factoryCount += 1
+            return window
+        }
+        presenter.installContent { AnyView(EmptyView()) }
 
         presenter.open()
-        presenter.openPendingRequests(
-            using: { events.append("open") },
-            activateApplication: { events.append("activate") }
-        )
-        presenter.openPendingRequests(
-            using: { events.append("open") },
-            activateApplication: { events.append("activate") }
-        )
+        presenter.openSystemSettings()
+        for _ in 0..<20 where window.presentationCount < 2 {
+            await Task.yield()
+        }
 
-        XCTAssertEqual(events, ["open", "activate"])
+        XCTAssertEqual(presenter.requestCount, 1)
+        XCTAssertEqual(presenter.systemOpenRequestCount, 1)
+        XCTAssertEqual(factoryCount, 1)
+        XCTAssertEqual(window.presentationCount, 2)
     }
 
     @MainActor
@@ -1166,4 +1170,10 @@ private final class CompositionSettingsReset: SettingsResetting {
 private final class CompositionReplacementRecorder {
     private(set) var reports: [ResetReport] = []
     func record(_ report: ResetReport) { reports.append(report) }
+}
+
+@MainActor
+private final class SettingsWindowFixture: SettingsWindowDisplaying {
+    private(set) var presentationCount = 0
+    func present() { presentationCount += 1 }
 }

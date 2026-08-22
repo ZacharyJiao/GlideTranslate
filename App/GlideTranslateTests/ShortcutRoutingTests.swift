@@ -157,9 +157,11 @@ final class ShortcutRoutingTests: XCTestCase {
         let registrar = ShortcutRegistrarFixture(results: [.success(())])
         let shortcut = ShortcutSettingsModel(registrar: registrar)
         let coordinator = SceneCoordinatorFixture()
+        let settingsPresenter = SettingsWindowPresenter()
         let state = AppSceneState(
             coordinator: coordinator,
             manualPresenter: presenter,
+            settingsPresenter: settingsPresenter,
             shortcutSettingsModel: shortcut,
             captureState: .running,
             presetName: "Accurate Translation",
@@ -175,10 +177,12 @@ final class ShortcutRoutingTests: XCTestCase {
         state.menuActions.translateSelectedText()
         state.menuActions.setAutomaticCapturePaused(true)
         state.menuActions.selectPreset(PresetID(rawValue: "polish-expression"))
+        state.menuActions.openSettings()
         for _ in 0..<20 where coordinator.callCount < 3 { await Task.yield() }
         XCTAssertEqual(coordinator.translateCount, 1)
         XCTAssertEqual(coordinator.pauseValues, [true])
         XCTAssertEqual(coordinator.presetIDs, [PresetID(rawValue: "polish-expression")])
+        XCTAssertEqual(settingsPresenter.systemOpenRequestCount, 1)
 
         state.manualInputViewModel.text = "manual"
         await state.manualInputViewModel.submit()

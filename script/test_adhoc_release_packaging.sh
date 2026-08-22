@@ -63,7 +63,9 @@ assert_closed_failure() {
 }
 
 rejecting_spctl="$fixture_root/rejecting-spctl"
-printf '%s\n' '#!/usr/bin/env bash' 'exit 3' > "$rejecting_spctl"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'printf "%s\n" "source=No usable signature" >&2' \
+  'exit 3' > "$rejecting_spctl"
 /bin/chmod 755 "$rejecting_spctl"
 rejecting_policy="$fixture_root/rejecting-policy"
 printf '%s\n' '#!/usr/bin/env bash' \
@@ -78,7 +80,135 @@ contract_packager="$fixture_root/contract-packager"
   "$packager" > "$contract_packager"
 /bin/chmod 755 "$contract_packager"
 
+generic_spctl="$fixture_root/generic-spctl"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'printf "%s: rejected\n" "${!#}"' \
+  'exit 3' > "$generic_spctl"
+/bin/chmod 755 "$generic_spctl"
+generic_packager="$fixture_root/generic-packager"
+/usr/bin/sed \
+  -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
+  -e "s#/usr/sbin/spctl#$generic_spctl#g" \
+  -e "s#/usr/bin/syspolicy_check#$rejecting_policy#g" \
+  "$packager" > "$generic_packager"
+/bin/chmod 755 "$generic_packager"
+
+contradictory_spctl="$fixture_root/contradictory-spctl"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'printf "%s\n" "source=Unnotarized Developer ID" >&2' \
+  'exit 3' > "$contradictory_spctl"
+/bin/chmod 755 "$contradictory_spctl"
+contradictory_packager="$fixture_root/contradictory-packager"
+/usr/bin/sed \
+  -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
+  -e "s#/usr/sbin/spctl#$contradictory_spctl#g" \
+  -e "s#/usr/bin/syspolicy_check#$rejecting_policy#g" \
+  "$packager" > "$contradictory_packager"
+/bin/chmod 755 "$contradictory_packager"
+
+near_miss_spctl="$fixture_root/near-miss-spctl"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'printf "%s\n" "source=No usable signature (extra context)" >&2' \
+  'exit 3' > "$near_miss_spctl"
+/bin/chmod 755 "$near_miss_spctl"
+near_miss_packager="$fixture_root/near-miss-packager"
+/usr/bin/sed \
+  -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
+  -e "s#/usr/sbin/spctl#$near_miss_spctl#g" \
+  -e "s#/usr/bin/syspolicy_check#$rejecting_policy#g" \
+  "$packager" > "$near_miss_packager"
+/bin/chmod 755 "$near_miss_packager"
+
+mixed_spctl="$fixture_root/mixed-spctl"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'printf "%s\n" "source=No usable signature" "source=Unrelated Policy Denial" >&2' \
+  'exit 3' > "$mixed_spctl"
+/bin/chmod 755 "$mixed_spctl"
+mixed_packager="$fixture_root/mixed-packager"
+/usr/bin/sed \
+  -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
+  -e "s#/usr/sbin/spctl#$mixed_spctl#g" \
+  -e "s#/usr/bin/syspolicy_check#$rejecting_policy#g" \
+  "$packager" > "$mixed_packager"
+/bin/chmod 755 "$mixed_packager"
+
 accepted_archive="$(make_archive accepted 0.1.0)"
+record_stage SPCTL_CONTRADICTORY_DEVELOPER_ID
+assert_closed_failure contradictory-spctl \
+  RELEASE_GATEKEEPER_CLASSIFICATION_MISMATCH \
+  "$contradictory_packager" "$accepted_archive" \
+  "$fixture_root/contradictory-output"
+record_stage SPCTL_NEAR_MISS
+assert_closed_failure near-miss-spctl \
+  RELEASE_GATEKEEPER_CLASSIFICATION_MISMATCH \
+  "$near_miss_packager" "$accepted_archive" \
+  "$fixture_root/near-miss-output"
+record_stage SPCTL_MIXED_DIAGNOSTIC
+assert_closed_failure mixed-spctl \
+  RELEASE_GATEKEEPER_CLASSIFICATION_MISMATCH \
+  "$mixed_packager" "$accepted_archive" \
+  "$fixture_root/mixed-output"
+generic_output="$fixture_root/generic-output"
+record_stage GENERIC_SPCTL_WITH_EXPECTED_POLICY
+generic_status=0
+"$generic_packager" "$accepted_archive" "$generic_output" \
+  > "$fixture_root/generic.stdout" 2> "$fixture_root/generic.stderr" \
+  || generic_status=$?
+test "$generic_status" -eq 0
+test "$(/bin/cat "$fixture_root/generic.stdout")" = ADHOC_RELEASE_PACKAGE_PASSED
+test ! -s "$fixture_root/generic.stderr"
+
+partial_policy="$fixture_root/partial-policy"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'printf "%s\n" '\''{"output":[{"SyspolicyCheckErrorLevel":"Warning","SyspolicyCheckShortError":"Adhoc Signed App"}]}'\''' \
+  'exit 70' > "$partial_policy"
+/bin/chmod 755 "$partial_policy"
+partial_policy_packager="$fixture_root/partial-policy-packager"
+/usr/bin/sed \
+  -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
+  -e "s#/usr/sbin/spctl#$generic_spctl#g" \
+  -e "s#/usr/bin/syspolicy_check#$partial_policy#g" \
+  "$packager" > "$partial_policy_packager"
+/bin/chmod 755 "$partial_policy_packager"
+record_stage GENERIC_SPCTL_PARTIAL_POLICY
+assert_closed_failure generic-partial-policy \
+  RELEASE_GATEKEEPER_CLASSIFICATION_MISMATCH \
+  "$partial_policy_packager" "$accepted_archive" \
+  "$fixture_root/generic-partial-policy-output"
+
+malformed_policy="$fixture_root/malformed-policy"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'printf "%s\n" "{malformed"' \
+  'exit 70' > "$malformed_policy"
+/bin/chmod 755 "$malformed_policy"
+malformed_policy_packager="$fixture_root/malformed-policy-packager"
+/usr/bin/sed \
+  -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
+  -e "s#/usr/sbin/spctl#$generic_spctl#g" \
+  -e "s#/usr/bin/syspolicy_check#$malformed_policy#g" \
+  "$packager" > "$malformed_policy_packager"
+/bin/chmod 755 "$malformed_policy_packager"
+record_stage GENERIC_SPCTL_MALFORMED_POLICY
+assert_closed_failure generic-malformed-policy \
+  RELEASE_GATEKEEPER_UNVERIFIABLE \
+  "$malformed_policy_packager" "$accepted_archive" \
+  "$fixture_root/generic-malformed-policy-output"
+
+policy_failure="$fixture_root/policy-failure"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 9' > "$policy_failure"
+/bin/chmod 755 "$policy_failure"
+policy_failure_packager="$fixture_root/policy-failure-packager"
+/usr/bin/sed \
+  -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
+  -e "s#/usr/sbin/spctl#$generic_spctl#g" \
+  -e "s#/usr/bin/syspolicy_check#$policy_failure#g" \
+  "$packager" > "$policy_failure_packager"
+/bin/chmod 755 "$policy_failure_packager"
+record_stage GENERIC_SPCTL_POLICY_FAILURE
+assert_closed_failure generic-policy-failure \
+  RELEASE_GATEKEEPER_UNVERIFIABLE \
+  "$policy_failure_packager" "$accepted_archive" \
+  "$fixture_root/generic-policy-failure-output"
 accepted_output="$fixture_root/accepted-output"
 record_stage ACCEPTED_FIXTURE
 accepted_status=0
@@ -271,6 +401,23 @@ record_stage SPCTL_FAILURE
 assert_closed_failure spctl RELEASE_GATEKEEPER_UNVERIFIABLE \
   "$spctl_packager" "$accepted_archive" "$fixture_root/spctl-output"
 
+unrelated_spctl="$fixture_root/unrelated-spctl"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'printf "%s\n" "source=Unrelated Policy Denial" >&2' \
+  'exit 3' > "$unrelated_spctl"
+/bin/chmod 755 "$unrelated_spctl"
+unrelated_spctl_packager="$fixture_root/unrelated-spctl-packager"
+/usr/bin/sed \
+  -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
+  -e "s#/usr/sbin/spctl#$unrelated_spctl#g" \
+  "$packager" > "$unrelated_spctl_packager"
+/bin/chmod 755 "$unrelated_spctl_packager"
+record_stage SPCTL_UNRELATED_REJECTION
+assert_closed_failure unrelated-spctl \
+  RELEASE_GATEKEEPER_CLASSIFICATION_MISMATCH \
+  "$unrelated_spctl_packager" "$accepted_archive" \
+  "$fixture_root/unrelated-spctl-output"
+
 accepted_spctl="$fixture_root/accepted-spctl"
 printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$accepted_spctl"
 /bin/chmod 755 "$accepted_spctl"
@@ -301,6 +448,54 @@ roundtrip_packager="$fixture_root/roundtrip-packager"
 record_stage ROUNDTRIP
 assert_closed_failure roundtrip RELEASE_ARCHIVE_ROUNDTRIP_MISMATCH \
   "$roundtrip_packager" "$accepted_archive" "$fixture_root/roundtrip-output"
+
+roundtrip_root_mode_tool="$fixture_root/roundtrip-root-mode-ditto"
+printf '%s\n' '#!/usr/bin/env bash' \
+  '/usr/bin/ditto "$@" || exit $?' \
+  'if [ "$1" = -x ]; then' \
+  '  /bin/chmod 700 "$4"' \
+  'fi' > "$roundtrip_root_mode_tool"
+/bin/chmod 755 "$roundtrip_root_mode_tool"
+roundtrip_root_mode_packager="$fixture_root/roundtrip-root-mode-packager"
+/usr/bin/sed \
+  -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
+  -e "s#/usr/bin/ditto#$roundtrip_root_mode_tool#g" \
+  "$contract_packager" > "$roundtrip_root_mode_packager"
+/bin/chmod 755 "$roundtrip_root_mode_packager"
+record_stage ROUNDTRIP_ROOT_MODE
+assert_closed_failure roundtrip-root-mode \
+  RELEASE_ARCHIVE_ROUNDTRIP_MISMATCH \
+  "$roundtrip_root_mode_packager" "$accepted_archive" \
+  "$fixture_root/roundtrip-root-mode-output"
+
+roundtrip_mutation_tool="$fixture_root/roundtrip-mutation-ditto"
+printf '%s\n' '#!/usr/bin/env bash' \
+  '/usr/bin/ditto "$@" || exit $?' \
+  'if [ "$1" = -x ]; then' \
+  '  resource="$4/GlideTranslate.app/Contents/Resources/en.lproj/Localizable.strings"' \
+  '  case "${GT_ROUNDTRIP_MUTATION:?}" in' \
+  '    byte) printf "%s\n" tampered > "$resource" ;;' \
+  '    path) /bin/mv "$resource" "${resource%.strings}.renamed" ;;' \
+  '    type) /bin/rm -f "$resource"; /bin/mkdir "$resource" ;;' \
+  '    *) exit 64 ;;' \
+  '  esac' \
+  'fi' > "$roundtrip_mutation_tool"
+/bin/chmod 755 "$roundtrip_mutation_tool"
+roundtrip_mutation_packager="$fixture_root/roundtrip-mutation-packager"
+/usr/bin/sed \
+  -e "s#workspace_root=.*#workspace_root='$workspace_root'#" \
+  -e "s#/usr/bin/ditto#$roundtrip_mutation_tool#g" \
+  "$contract_packager" > "$roundtrip_mutation_packager"
+/bin/chmod 755 "$roundtrip_mutation_packager"
+for mutation in byte path type; do
+  mutation_stage="$(printf '%s' "$mutation" | /usr/bin/tr '[:lower:]' '[:upper:]')"
+  record_stage "ROUNDTRIP_$mutation_stage"
+  assert_closed_failure "roundtrip-$mutation" \
+    RELEASE_ARCHIVE_ROUNDTRIP_MISMATCH \
+    env GT_ROUNDTRIP_MUTATION="$mutation" \
+    "$roundtrip_mutation_packager" "$accepted_archive" \
+    "$fixture_root/roundtrip-$mutation-output"
+done
 
 policy_tool="$fixture_root/unrelated-policy"
 printf '%s\n' '#!/usr/bin/env bash' \

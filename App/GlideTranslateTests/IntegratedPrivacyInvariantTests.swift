@@ -1,5 +1,6 @@
 import Foundation
 import PrivacyStorage
+import SelectionCapture
 import SharedSupport
 import XCTest
 
@@ -100,6 +101,13 @@ final class IntegratedPrivacyInvariantTests: XCTestCase {
             if failureCase == .userCancellation {
                 XCTAssertEqual(harness.feedbackPresentationCount, 0)
             }
+            if failureCase.isSilentAutomaticCaptureFailure {
+                XCTAssertEqual(
+                    harness.feedbackPresentationCount,
+                    0,
+                    String(describing: failureCase)
+                )
+            }
             if [.historyDisabled, .applicationExcluded, .historyUnrecoverable]
                 .contains(failureCase) {
                 XCTAssertEqual(
@@ -159,5 +167,63 @@ final class IntegratedPrivacyInvariantTests: XCTestCase {
                 )
             }
         }
+    }
+
+    func testCaptureFailureCategoriesAreClosedAndMappedWithoutRuntimeValues() {
+        let rows: [(SelectionAuthorizationFailure, CaptureFailureCategory)] = [
+            (.noValidSelection, .noValidSelection),
+            (.unsupportedApplication, .unsupportedApplication),
+            (.foregroundApplicationChanged, .foregroundApplicationChanged),
+            (.accessibilityPermissionMissing, .permission),
+            (.automaticCapturePaused, .policy),
+            (.mouseCaptureDisabled, .policy),
+            (.keyboardCaptureDisabled, .policy),
+            (.applicationNotAllowed, .policy),
+            (.offDeviceApplicationNotAllowed, .policy),
+            (.cancelled, .cancelled),
+            (.selectionReadTimedOut, .timeout),
+            (.providerDestinationUnresolved, .providerDrift),
+            (.providerChanged, .providerDrift),
+            (.unsafeFallbackState, .other),
+            (.snapshotTooLarge, .other),
+        ]
+
+        XCTAssertEqual(
+            Set(rows.map(\.1)),
+            Set(CaptureFailureCategory.allCases)
+        )
+        XCTAssertEqual(
+            rows.map { $0.0.captureFailureCategory },
+            rows.map(\.1)
+        )
+        XCTAssertTrue(
+            rows.map { SafeLogRecord.captureFailure($0.1) }
+                .allSatisfy { record in
+                    !String(reflecting: record).contains("SYNTHETIC")
+                }
+        )
+    }
+
+    func testSelectionAXDiagnosticsAreClosedAndRuntimeValueFree() {
+        let events = SelectionAXDiagnostic.allCases.map {
+            AppEvent.selectionAXDiagnostic($0)
+        }
+
+        XCTAssertEqual(events.count, SelectionAXDiagnostic.allCases.count)
+        XCTAssertEqual(
+            Set(events.compactMap { event in
+                if case let .selectionAXDiagnostic(diagnostic) = event {
+                    return diagnostic
+                }
+                return nil
+            }),
+            Set(SelectionAXDiagnostic.allCases)
+        )
+        XCTAssertTrue(
+            events.allSatisfy { event in
+                !String(reflecting: event).contains("SYNTHETIC")
+                    && !String(reflecting: event).contains("http")
+            }
+        )
     }
 }

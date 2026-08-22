@@ -23,6 +23,15 @@ write_tree_manifest() {
     return 1
   fi
   : > "$manifest_unsorted"
+  if ! root_mode="$(/usr/bin/stat -f '%Lp' "$manifest_root" \
+      2>> "$private_root/manifest.private")"; then
+    return 1
+  fi
+  case "$root_mode" in
+    ''|*[!0-7]*) return 1 ;;
+  esac
+  printf '%s\t%s\t%s\t%s\n' . directory "$root_mode" - \
+    >> "$manifest_unsorted"
   while IFS= read -r -d '' manifest_path; do
     relative_path="${manifest_path#"$manifest_root"/}"
     case "$relative_path" in
@@ -193,11 +202,66 @@ if ! /usr/bin/codesign -d --entitlements :- "$signed_app" \
   exit 1
 fi
 spctl_status=0
-/usr/sbin/spctl -a -t exec "$signed_app" \
+/usr/sbin/spctl -a -t exec -vv "$signed_app" \
   > "$private_root/spctl.stdout.private" \
   2> "$private_root/spctl.stderr.private" || spctl_status=$?
 case "$spctl_status" in
-  3) ;;
+  3)
+    spctl_developer_id_status=0
+    LC_ALL=C rg -qi \
+      -e '^(source|origin)=[^[:cntrl:]]*Developer ID[^[:cntrl:]]*$' \
+      -e '^Developer ID[^[:cntrl:]]*$' \
+      "$private_root/spctl.stdout.private" \
+      "$private_root/spctl.stderr.private" \
+      >/dev/null 2>&1 || spctl_developer_id_status=$?
+    case "$spctl_developer_id_status" in
+      0)
+        printf '%s\n' RELEASE_GATEKEEPER_CLASSIFICATION_MISMATCH >&2
+        exit 1
+        ;;
+      1) ;;
+      *)
+        printf '%s\n' RELEASE_GATEKEEPER_UNVERIFIABLE >&2
+        exit 2
+        ;;
+    esac
+    # Validate the complete diagnostic set. Every nonempty line must be an
+    # exact no-usable-signature/ad-hoc reason or a generic rejection line;
+    # existential matching would hide a contradictory extra diagnostic.
+    spctl_output_status=0
+    LC_ALL=C /usr/bin/awk '
+      BEGIN { saw_accepted = 0; invalid = 0 }
+      NF {
+        line = tolower($0)
+        if (line ~ /^source=no usable signature$/ ||
+            line ~ /^origin=no usable signature$/ ||
+            line ~ /^source=ad[ -]?hoc$/ ||
+            line ~ /^origin=ad[ -]?hoc$/ ||
+            line ~ /^[^[:cntrl:]]+:[[:space:]]+rejected$/) {
+          saw_accepted = 1
+        } else {
+          invalid = 1
+        }
+      }
+      END {
+        if (invalid || !saw_accepted) exit 1
+        exit 0
+      }
+    ' "$private_root/spctl.stdout.private" \
+      "$private_root/spctl.stderr.private" \
+      >/dev/null 2>&1 || spctl_output_status=$?
+    case "$spctl_output_status" in
+      0) ;;
+      1)
+        printf '%s\n' RELEASE_GATEKEEPER_CLASSIFICATION_MISMATCH >&2
+        exit 1
+        ;;
+      *)
+        printf '%s\n' RELEASE_GATEKEEPER_UNVERIFIABLE >&2
+        exit 2
+        ;;
+    esac
+    ;;
   0)
     printf '%s\n' RELEASE_GATEKEEPER_CLASSIFICATION_MISMATCH >&2
     exit 1
@@ -207,6 +271,7 @@ case "$spctl_status" in
     exit 2
     ;;
 esac
+
 policy_status=0
 /usr/bin/syspolicy_check distribution "$signed_app" --json \
   > "$private_root/syspolicy.json" \
@@ -222,7 +287,8 @@ case "$policy_status" in
     exit 2
     ;;
 esac
-if ! /usr/bin/jq -e '
+policy_json_status=0
+/usr/bin/jq -e '
   .output | type == "array" and length == 2 and
   ([.[] | {
     level: .SyspolicyCheckErrorLevel,
@@ -232,10 +298,18 @@ if ! /usr/bin/jq -e '
     {level: "Fatal", category: "Notary Ticket Missing"}
   ]
 ' "$private_root/syspolicy.json" >/dev/null \
-    2> "$private_root/syspolicy-jq.private"; then
-  printf '%s\n' RELEASE_GATEKEEPER_CLASSIFICATION_MISMATCH >&2
-  exit 1
-fi
+    2> "$private_root/syspolicy-jq.private" || policy_json_status=$?
+case "$policy_json_status" in
+  0) ;;
+  1)
+    printf '%s\n' RELEASE_GATEKEEPER_CLASSIFICATION_MISMATCH >&2
+    exit 1
+    ;;
+  *)
+    printf '%s\n' RELEASE_GATEKEEPER_UNVERIFIABLE >&2
+    exit 2
+    ;;
+esac
 
 signed_inspection="$private_root/signed-inspection"
 if ! GT_APPROVED_BUNDLE_ID="$approved_bundle_id" \

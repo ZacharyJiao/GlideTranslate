@@ -1,4 +1,5 @@
 import Foundation
+import SelectionCapture
 import SharedSupport
 import TranslationCore
 import XCTest
@@ -7,10 +8,23 @@ import XCTest
 final class SafeLoggerTests: XCTestCase {
     func testEventInventoryContainsOnlyClosedAssociatedValues() {
         let events: [AppEvent] = [
+            .captureTriggerReceived(.mouse),
+            .captureTriggerReceived(.keyboardSelection),
+            .shortcutReceived,
             .captureOutcome(.succeeded),
             .captureOutcome(.rejected),
             .captureOutcome(.timedOut),
             .captureOutcome(.cancelled),
+            .captureFailure(.noValidSelection),
+            .captureFailure(.unsupportedApplication),
+            .captureFailure(.foregroundApplicationChanged),
+            .captureFailure(.permission),
+            .captureFailure(.policy),
+            .captureFailure(.cancelled),
+            .captureFailure(.timeout),
+            .captureFailure(.providerDrift),
+            .captureFailure(.other),
+            .selectionAXDiagnostic(.focusedLookupApplicationUnsupported),
             .providerHealth(.available),
             .providerHealth(.unavailable),
             .providerHealth(.reconfirmationRequired),
@@ -26,7 +40,15 @@ final class SafeLoggerTests: XCTestCase {
 
         for event in events {
             switch event {
+            case .captureTriggerReceived:
+                break
+            case .shortcutReceived:
+                break
             case .captureOutcome:
+                break
+            case .captureFailure:
+                break
+            case .selectionAXDiagnostic:
                 break
             case .providerHealth:
                 break
@@ -73,6 +95,11 @@ final class SafeLoggerTests: XCTestCase {
         let logger = SafeLogger(emitter: emitter)
 
         logger.record(.captureOutcome(.timedOut))
+        logger.record(.captureFailure(.noValidSelection))
+        logger.record(.selectionAXDiagnostic(.directSelectionUnsupported))
+        logger.record(.captureTriggerReceived(.mouse))
+        logger.record(.captureTriggerReceived(.keyboardSelection))
+        logger.record(.shortcutReceived)
         logger.record(.providerHealth(.unavailable))
         logger.record(.translationOutcome(
             .cancelled,
@@ -83,6 +110,11 @@ final class SafeLoggerTests: XCTestCase {
 
         XCTAssertEqual(emitter.capturedRecords, [
             .capture(.timedOut),
+            .captureFailure(.noValidSelection),
+            .selectionAX(.directSelectionUnsupported),
+            .captureTrigger(.mouse),
+            .captureTrigger(.keyboardSelection),
+            .shortcutReceived,
             .providerHealth(.unavailable),
             .translation(.cancelled, durationMilliseconds: 9),
             .history(.stored),
@@ -276,8 +308,16 @@ private final class CapturingSafeLogEmitter: SafeLogEmitting, @unchecked Sendabl
 
     private static func render(_ record: SafeLogRecord) -> String {
         switch record {
+        case let .captureTrigger(trigger):
+            "trigger:\(trigger.rawValue)"
+        case .shortcutReceived:
+            "shortcut_received:shortcut"
         case let .capture(outcome):
             "capture:\(outcome.rawValue)"
+        case let .captureFailure(failure):
+            "capture_failure:\(failure.rawValue)"
+        case let .selectionAX(diagnostic):
+            "ax_stage:\(diagnostic.rawValue)"
         case let .providerHealth(health):
             "provider:\(health.rawValue)"
         case let .providerDiagnostic(providerClass, outcome, durationMilliseconds):

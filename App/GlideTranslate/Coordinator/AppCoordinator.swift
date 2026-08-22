@@ -86,6 +86,14 @@ final class AppCoordinator {
         let priorRequestID: TranslationRequestID?
     }
 
+    private struct PreparedSystemTrigger {
+        let options: TranslationOptionsSnapshot
+        let policy: CapturePolicySnapshot
+        let provider: ProviderDestinationSnapshot
+        let providerID: ProviderConfigurationID
+        let manualCharacterLimit: Int
+    }
+
     private struct ActivePresetPicker {
         let ownerGeneration: UInt64
         let sessionID: UUID
@@ -137,6 +145,7 @@ final class AppCoordinator {
     private var currentStreamTaskID: UUID?
     private var ownedStreamTasks: [UUID: Task<Void, Never>] = [:]
     private var generation: UInt64 = 0
+    private var automaticAttemptGeneration: UInt64 = 0
     private var presentation: TranslationPresentation?
     private var presentationGeneration: UInt64?
     private var isRetired = false
@@ -183,6 +192,15 @@ final class AppCoordinator {
     ) async {
         guard entryGate.acquire() else { return }
         defer { entryGate.release() }
+        if trigger == .mouse || trigger == .keyboardSelection {
+            await handleAutomaticSystemTrigger(
+                trigger,
+                sourceLanguage: sourceLanguage,
+                targetLanguage: targetLanguage,
+                presetID: presetID
+            )
+            return
+        }
         guard let claim = claimIntent() else { return }
         await cancelPriorRequest(for: claim)
         guard isCurrent(claim) else { return }
@@ -203,33 +221,111 @@ final class AppCoordinator {
         claim: IntentClaim
     ) async {
         do {
-            async let preset = environment.promptPresets.validatedPreset(presetID)
-            async let inputs = contextLoader.systemInputs(for: trigger)
-            let (validatedPreset, authorizationInputs) = try await (preset, inputs)
-            guard isCurrent(claim) else { return }
-            let options = TranslationOptionsSnapshot(
+            let prepared = try await prepareSystemTrigger(
+                trigger,
                 sourceLanguage: sourceLanguage,
                 targetLanguage: targetLanguage,
-                preset: validatedPreset,
-                timeouts: Self.timeouts(from: authorizationInputs.preferences)
-            )
-            let outcome = await environment.systemSelectionProcessor.process(
-                trigger: trigger,
-                options: options,
-                policy: authorizationInputs.policy,
-                provider: authorizationInputs.provider
+                presetID: presetID
             )
             guard isCurrent(claim) else { return }
-            publishForegroundApplicationState(for: trigger, outcome: outcome)
+            let outcome = await environment.systemSelectionProcessor.process(
+                trigger: trigger,
+                options: prepared.options,
+                policy: prepared.policy,
+                provider: prepared.provider
+            )
+            guard isCurrent(claim) else { return }
+            recordCaptureOutcome(outcome)
+            publishForegroundApplicationState(
+                for: trigger,
+                outcome: outcome
+            )
             await handle(
                 outcome,
-                selectedProviderID: authorizationInputs.providerID,
-                manualCharacterLimit: authorizationInputs.preferences.selectionCharacterLimit,
+                trigger: trigger,
+                selectedProviderID: prepared.providerID,
+                manualCharacterLimit: prepared.manualCharacterLimit,
                 claim: claim
             )
         } catch {
             present(error, claim: claim)
         }
+    }
+
+    private func handleAutomaticSystemTrigger(
+        _ trigger: CaptureTrigger,
+        sourceLanguage: LanguageChoice,
+        targetLanguage: LanguageChoice,
+        presetID: PresetID
+    ) async {
+        automaticAttemptGeneration &+= 1
+        let attemptGeneration = automaticAttemptGeneration
+        let observedGeneration = generation
+        do {
+            let prepared = try await prepareSystemTrigger(
+                trigger,
+                sourceLanguage: sourceLanguage,
+                targetLanguage: targetLanguage,
+                presetID: presetID
+            )
+            guard isCurrentAutomaticAttempt(
+                attemptGeneration,
+                observedGeneration: observedGeneration
+            ) else { return }
+            let outcome = await environment.systemSelectionProcessor.process(
+                trigger: trigger,
+                options: prepared.options,
+                policy: prepared.policy,
+                provider: prepared.provider
+            )
+            guard isCurrentAutomaticAttempt(
+                attemptGeneration,
+                observedGeneration: observedGeneration
+            ) else { return }
+            recordCaptureOutcome(outcome)
+            publishForegroundApplicationState(
+                for: trigger,
+                outcome: outcome
+            )
+            guard case .authorized = outcome,
+                  let claim = claimIntent() else { return }
+            await cancelPriorRequest(for: claim)
+            guard isCurrent(claim) else { return }
+            await handle(
+                outcome,
+                trigger: trigger,
+                selectedProviderID: prepared.providerID,
+                manualCharacterLimit: prepared.manualCharacterLimit,
+                claim: claim
+            )
+        } catch {
+            return
+        }
+    }
+
+    private func prepareSystemTrigger(
+        _ trigger: CaptureTrigger,
+        sourceLanguage: LanguageChoice,
+        targetLanguage: LanguageChoice,
+        presetID: PresetID
+    ) async throws -> PreparedSystemTrigger {
+        async let preset = environment.promptPresets.validatedPreset(presetID)
+        async let inputs = contextLoader.systemInputs(for: trigger)
+        let (validatedPreset, authorizationInputs) = try await (preset, inputs)
+        let options = TranslationOptionsSnapshot(
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage,
+            preset: validatedPreset,
+            timeouts: Self.timeouts(from: authorizationInputs.preferences)
+        )
+        return PreparedSystemTrigger(
+            options: options,
+            policy: authorizationInputs.policy,
+            provider: authorizationInputs.provider,
+            providerID: authorizationInputs.providerID,
+            manualCharacterLimit:
+                authorizationInputs.preferences.selectionCharacterLimit
+        )
     }
 
     func submitManual(_ draft: ManualTranslationDraft) async {
@@ -273,6 +369,7 @@ final class AppCoordinator {
             guard isCurrent(claim) else { return }
             await handle(
                 outcome,
+                trigger: .manualInput,
                 selectedProviderID: inputs.providerID,
                 manualCharacterLimit: inputs.preferences.selectionCharacterLimit,
                 claim: claim
@@ -362,6 +459,7 @@ final class AppCoordinator {
 
     private func handle(
         _ outcome: SelectionAuthorizationOutcome,
+        trigger: CaptureTrigger,
         selectedProviderID: ProviderConfigurationID,
         manualCharacterLimit: Int? = nil,
         claim: IntentClaim
@@ -382,6 +480,7 @@ final class AppCoordinator {
             manualInputPresenter.open()
         case let .rejected(failure):
             guard failure != .cancelled else { return }
+            guard trigger != .mouse, trigger != .keyboardSelection else { return }
             feedbackPresenter.presentSafeNextAction(
                 failure.safeNextActionPresentation
             )
@@ -401,6 +500,30 @@ final class AppCoordinator {
             disabled = false
         }
         foregroundApplicationDisabledChanged(disabled)
+    }
+
+    private func recordCaptureOutcome(
+        _ outcome: SelectionAuthorizationOutcome
+    ) {
+        let category: CaptureOutcomeCategory
+        switch outcome {
+        case .authorized:
+            category = .succeeded
+        case .manualInputRequired:
+            category = .rejected
+        case .rejected(.cancelled):
+            category = .cancelled
+        case .rejected(.selectionReadTimedOut):
+            category = .timedOut
+        case .rejected:
+            category = .rejected
+        }
+        environment.logger.record(.captureOutcome(category))
+        if case let .rejected(failure) = outcome {
+            environment.logger.record(
+                .captureFailure(failure.captureFailureCategory)
+            )
+        }
     }
 
     private func start(
@@ -794,6 +917,15 @@ final class AppCoordinator {
 
     private func isCurrent(_ claim: IntentClaim) -> Bool {
         !isRetired && generation == claim.generation
+    }
+
+    private func isCurrentAutomaticAttempt(
+        _ attemptGeneration: UInt64,
+        observedGeneration: UInt64
+    ) -> Bool {
+        !isRetired
+            && automaticAttemptGeneration == attemptGeneration
+            && generation == observedGeneration
     }
 
     private func canPresentCompletionFeedback(

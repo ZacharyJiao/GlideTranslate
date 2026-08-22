@@ -1,9 +1,23 @@
+import Foundation
 import SharedSupport
 import TestSupport
 import XCTest
 @testable import SelectionCapture
 
 final class AuthorizationOrderingTests: XCTestCase {
+    private final class DiagnosticRecorder: @unchecked Sendable {
+        private let lock = NSLock()
+        private var storage: [SelectionAXDiagnostic] = []
+
+        var events: [SelectionAXDiagnostic] {
+            lock.withLock { storage }
+        }
+
+        func record(_ event: SelectionAXDiagnostic) {
+            lock.withLock { storage.append(event) }
+        }
+    }
+
     func testAllPreReadRejectionsHaveZeroSystemReadsAndZeroMints() async {
         let app = ApplicationIdentity(
             bundleIdentifier: "invalid.example.authorization",
@@ -332,6 +346,44 @@ final class AuthorizationOrderingTests: XCTestCase {
         )
         XCTAssertTrue(manual.isManualInputRequired)
         XCTAssertEqual(disabled.clipboardReader.count.value, 0)
+    }
+
+    func testShortcutClipboardFallbackReportsClosedStageResult() async {
+        let fixture = AuthorizationFixture()
+        fixture.systemReader.result = .failure(.noValidSelection)
+        let recorder = DiagnosticRecorder()
+        let gate = DefaultSelectionAuthorizationGate(
+            foregroundReader: fixture.foregroundReader,
+            systemReader: fixture.systemReader,
+            clipboardReader: fixture.clipboardReader,
+            snapshotReader: fixture.snapshotReader,
+            selectionFilter: PassThroughSelectionFilter(),
+            duplicateChecker: TestDuplicateChecker(),
+            mintObserver: fixture.mintSpy,
+            diagnosticHandler: recorder.record
+        )
+        let policy = CapturePolicySnapshot.fixture(
+            master: false,
+            mouseEnabled: false,
+            keyboardEnabled: false,
+            general: [],
+            offDevice: [],
+            clipboard: true
+        )
+
+        let outcome = await gate.authorizeSystemSelection(
+            trigger: .shortcut,
+            context: fixture.context,
+            options: fixture.options,
+            policy: policy,
+            provider: fixture.expected
+        )
+
+        XCTAssertTrue(outcome.isManualInputRequired)
+        XCTAssertEqual(recorder.events, [
+            .clipboardFallbackStarted,
+            .clipboardFallbackNoValidSelection,
+        ])
     }
 
     func testAcceptedAutomaticPathNeverUsesEnabledClipboardFallback() async {

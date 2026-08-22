@@ -2,6 +2,21 @@ import CoreGraphics
 import Foundation
 import SharedSupport
 
+private extension SelectionAuthorizationFailure {
+    var clipboardDiagnostic: SelectionAXDiagnostic {
+        switch self {
+        case .noValidSelection:
+            .clipboardFallbackNoValidSelection
+        case .unsafeFallbackState:
+            .clipboardFallbackUnsafe
+        case .cancelled:
+            .clipboardFallbackCancelled
+        default:
+            .clipboardFallbackFailed
+        }
+    }
+}
+
 package protocol SystemSelectionReading: Sendable {
     func readSelection(
         from context: ForegroundApplicationContext
@@ -65,6 +80,7 @@ package actor DefaultSelectionAuthorizationGate:
     private let selectionFilter: any CapturedSelectionFiltering
     private var duplicateChecker: any DuplicateSelectionChecking
     private let mintObserver: any IntentMintObserving
+    private let diagnosticHandler: SelectionAXDiagnosticHandler
 
     package init(
         foregroundReader: any ForegroundApplicationReading,
@@ -73,7 +89,8 @@ package actor DefaultSelectionAuthorizationGate:
         snapshotReader: any ProviderSnapshotReading,
         selectionFilter: any CapturedSelectionFiltering,
         duplicateChecker: any DuplicateSelectionChecking,
-        mintObserver: any IntentMintObserving = NoOpMintObserver()
+        mintObserver: any IntentMintObserving = NoOpMintObserver(),
+        diagnosticHandler: @escaping SelectionAXDiagnosticHandler = { _ in }
     ) {
         self.foregroundReader = foregroundReader
         self.systemReader = systemReader
@@ -82,6 +99,7 @@ package actor DefaultSelectionAuthorizationGate:
         self.selectionFilter = selectionFilter
         self.duplicateChecker = duplicateChecker
         self.mintObserver = mintObserver
+        self.diagnosticHandler = diagnosticHandler
     }
 
     package func authorizeSystemSelection(
@@ -130,16 +148,21 @@ package actor DefaultSelectionAuthorizationGate:
             where trigger == .shortcut
                 && preRead == .accessibilityWithOptionalClipboard:
             guard !Task.isCancelled else {
+                diagnosticHandler(.clipboardFallbackCancelled)
                 return .rejected(.cancelled)
             }
+            diagnosticHandler(.clipboardFallbackStarted)
             let clipboardResult = await clipboardReader.readShortcutSelection()
             guard !Task.isCancelled else {
+                diagnosticHandler(.clipboardFallbackCancelled)
                 return .rejected(.cancelled)
             }
             switch clipboardResult {
             case .success(let value):
+                diagnosticHandler(.clipboardFallbackSucceeded)
                 selection = value
-            case .failure:
+            case .failure(let failure):
+                diagnosticHandler(failure.clipboardDiagnostic)
                 return .manualInputRequired
             }
         case .failure(let failure):
