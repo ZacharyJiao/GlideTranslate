@@ -5,6 +5,21 @@ import XCTest
 @testable import SelectionCapture
 
 final class AccessibilitySelectionReaderTests: XCTestCase {
+    private final class FakeTraversalClock: AXTraversalClock, @unchecked Sendable {
+        private let lock = NSLock()
+        private var value: UInt64
+
+        init(_ value: UInt64) { self.value = value }
+
+        func nowUptimeNanoseconds() -> UInt64 {
+            lock.withLock { value }
+        }
+
+        func advance(by nanoseconds: UInt64) {
+            lock.withLock { value &+= nanoseconds }
+        }
+    }
+
     private final class DiagnosticRecorder: @unchecked Sendable {
         private let lock = NSLock()
         private var storage: [SelectionAXDiagnostic] = []
@@ -69,6 +84,7 @@ final class AccessibilitySelectionReaderTests: XCTestCase {
         private let selectedText: String
         private let traversalDiagnosticHandler: SelectionAXDiagnosticHandler?
         private var eventStorage: [String] = []
+        private var traversalRequestStorage: AXTraversalRequest?
 
         init(
             failure: FailurePoint = .none,
@@ -83,6 +99,9 @@ final class AccessibilitySelectionReaderTests: XCTestCase {
         }
 
         var events: [String] { lock.withLock { eventStorage } }
+        var traversalRequest: AXTraversalRequest? {
+            lock.withLock { traversalRequestStorage }
+        }
         private func record(_ value: String) { lock.withLock { eventStorage.append(value) } }
 
         func isTrusted() -> Bool { record("trusted"); return true }
@@ -167,6 +186,15 @@ final class AccessibilitySelectionReaderTests: XCTestCase {
                 throw AXOperationFailure.traversalCannotComplete
             }
             return AXElementToken(raw: focusedObject)
+        }
+
+        func selectionElementFallback(
+            of application: AXElementToken,
+            request: AXTraversalRequest
+        ) throws -> AXElementToken {
+            lock.withLock { traversalRequestStorage = request }
+            record("selection traversal policy")
+            return try selectionElementFallback(of: application)
         }
 
         func selectedText(of element: AXElementToken) throws -> String {
@@ -451,7 +479,7 @@ final class AccessibilitySelectionReaderTests: XCTestCase {
         XCTAssertEqual(system.events, [
             "trusted", "make application", "timeout application",
             "enable manual accessibility", "focused element", "system wide focused element",
-            "selection element fallback", "timeout focused",
+            "selection traversal policy", "selection element fallback", "timeout focused",
             "selected text", "selected bounds",
         ])
     }
@@ -481,8 +509,60 @@ final class AccessibilitySelectionReaderTests: XCTestCase {
             "trusted", "make application", "timeout application",
             "enable manual accessibility", "focused element", "timeout focused",
             "selected text", "selected text marker range", "selected text value range",
-            "selection element fallback", "timeout focused", "selected text", "selected bounds",
+            "selection traversal policy", "selection element fallback", "timeout focused", "selected text", "selected bounds",
         ])
+    }
+
+    func testSystemClientPassesFiniteTraversalTimeoutAndDeadline() throws {
+        let system = StubAXSystem(
+            failure: .focusedWithoutSelectionWithDescendantFallback
+        )
+
+        _ = try SystemAXClient(system: system).readSelection(pid: 42)
+
+        let request = try XCTUnwrap(system.traversalRequest)
+        XCTAssertEqual(request.timeoutSeconds, 1.0)
+        XCTAssertGreaterThan(
+            request.deadlineUptimeNanoseconds,
+            DispatchTime.now().uptimeNanoseconds
+        )
+        XCTAssertTrue(system.events.contains("selection traversal policy"))
+    }
+
+    func testTraversalTimeoutShrinksToRemainingDeadline() {
+        let request = AXTraversalRequest(
+            timeoutSeconds: 1.0,
+            deadlineUptimeNanoseconds: 2_000_000_000
+        )
+
+        XCTAssertEqual(
+            request.timeoutSecondsRemaining(at: 1_500_000_000)!,
+            0.5,
+            accuracy: 0.0001
+        )
+        XCTAssertNil(request.timeoutSecondsRemaining(at: 2_000_000_000))
+    }
+
+    func testTraversalCallGateRefreshesBeforeEachCallAndStopsAfterDeadline() {
+        let clock = FakeTraversalClock(0)
+        let gate = AXTraversalCallGate(
+            request: AXTraversalRequest(
+                timeoutSeconds: 1.0,
+                deadlineUptimeNanoseconds: 1_000_000_000
+            ),
+            clock: clock
+        )
+
+        var startedCalls = 0
+        if gate.timeoutSecondsRemaining() != nil { startedCalls += 1 }
+        clock.advance(by: 400_000_000)
+        XCTAssertEqual(gate.timeoutSecondsRemaining()!, 0.6, accuracy: 0.0001)
+        if gate.timeoutSecondsRemaining() != nil { startedCalls += 1 }
+        clock.advance(by: 600_000_000)
+        XCTAssertNil(gate.timeoutSecondsRemaining())
+        if gate.timeoutSecondsRemaining() != nil { startedCalls += 1 }
+
+        XCTAssertEqual(startedCalls, 2)
     }
 
     func testSystemClientReportsClosedAXStageDiagnostics() throws {

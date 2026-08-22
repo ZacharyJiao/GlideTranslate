@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 import Darwin
+import Dispatch
 
 package struct AXElementToken: @unchecked Sendable {
     fileprivate let raw: AnyObject
@@ -20,6 +21,56 @@ package enum AXOperationFailure: Error, Equatable, Sendable {
     case traversalCannotComplete
 }
 
+package struct AXTraversalRequest: Equatable, Sendable {
+    package let timeoutSeconds: Float
+    package let deadlineUptimeNanoseconds: UInt64
+
+    package init(timeoutSeconds: Float, deadlineUptimeNanoseconds: UInt64) {
+        self.timeoutSeconds = timeoutSeconds
+        self.deadlineUptimeNanoseconds = deadlineUptimeNanoseconds
+    }
+
+    package func isExpired(at uptimeNanoseconds: UInt64) -> Bool {
+        uptimeNanoseconds >= deadlineUptimeNanoseconds
+    }
+
+    package func timeoutSecondsRemaining(at uptimeNanoseconds: UInt64) -> Float? {
+        guard uptimeNanoseconds < deadlineUptimeNanoseconds else { return nil }
+        let remainingNanoseconds = deadlineUptimeNanoseconds - uptimeNanoseconds
+        let remainingSeconds = Float(remainingNanoseconds) / 1_000_000_000
+        return min(timeoutSeconds, remainingSeconds)
+    }
+}
+
+package protocol AXTraversalClock: Sendable {
+    func nowUptimeNanoseconds() -> UInt64
+}
+
+package struct SystemAXTraversalClock: AXTraversalClock, Sendable {
+    package init() {}
+
+    package func nowUptimeNanoseconds() -> UInt64 {
+        DispatchTime.now().uptimeNanoseconds
+    }
+}
+
+package struct AXTraversalCallGate: Sendable {
+    package let request: AXTraversalRequest
+    private let clock: any AXTraversalClock
+
+    package init(
+        request: AXTraversalRequest,
+        clock: any AXTraversalClock
+    ) {
+        self.request = request
+        self.clock = clock
+    }
+
+    package func timeoutSecondsRemaining() -> Float? {
+        request.timeoutSecondsRemaining(at: clock.nowUptimeNanoseconds())
+    }
+}
+
 package protocol AXSystemAccessing: Sendable {
     func isTrusted() -> Bool
     func makeApplication(pid: pid_t) -> AXElementToken
@@ -31,6 +82,10 @@ package protocol AXSystemAccessing: Sendable {
     func focusedElement(of application: AXElementToken) throws -> AXElementToken
     func systemWideFocusedElement(expectedPID: pid_t) throws -> AXElementToken
     func selectionElementFallback(of application: AXElementToken) throws -> AXElementToken
+    func selectionElementFallback(
+        of application: AXElementToken,
+        request: AXTraversalRequest
+    ) throws -> AXElementToken
     func selectedText(of element: AXElementToken) throws -> String
     func selectedTextFromTextMarkerRange(
         of element: AXElementToken
@@ -39,6 +94,15 @@ package protocol AXSystemAccessing: Sendable {
     func selectedBoundsTopLeftGlobal(
         of element: AXElementToken
     ) throws -> CGRect?
+}
+
+package extension AXSystemAccessing {
+    func selectionElementFallback(
+        of application: AXElementToken,
+        request: AXTraversalRequest
+    ) throws -> AXElementToken {
+        try selectionElementFallback(of: application)
+    }
 }
 
 package final class SystemAXClient: AXSelectionClient, @unchecked Sendable {
@@ -205,7 +269,14 @@ package final class SystemAXClient: AXSelectionClient, @unchecked Sendable {
         of application: AXElementToken
     ) throws -> AXElementToken {
         do {
-            let element = try system.selectionElementFallback(of: application)
+            let request = AXTraversalRequest(
+                timeoutSeconds: 1.0,
+                deadlineUptimeNanoseconds: DispatchTime.now().uptimeNanoseconds &+ 1_000_000_000
+            )
+            let element = try system.selectionElementFallback(
+                of: application,
+                request: request
+            )
             diagnosticHandler(.focusedLookupDescendantSucceeded)
             diagnosticHandler(.descendantTraversalSucceeded)
             return element
@@ -319,9 +390,14 @@ package final class SystemAXClient: AXSelectionClient, @unchecked Sendable {
 
 private final class DefaultAXSystem: AXSystemAccessing, @unchecked Sendable {
     private let diagnosticHandler: SelectionAXDiagnosticHandler
+    private let traversalClock: any AXTraversalClock
 
-    init(diagnosticHandler: @escaping SelectionAXDiagnosticHandler = { _ in }) {
+    init(
+        diagnosticHandler: @escaping SelectionAXDiagnosticHandler = { _ in },
+        traversalClock: any AXTraversalClock = SystemAXTraversalClock()
+    ) {
         self.diagnosticHandler = diagnosticHandler
+        self.traversalClock = traversalClock
     }
 
     func isTrusted() -> Bool { AXIsProcessTrusted() }
@@ -391,6 +467,17 @@ private final class DefaultAXSystem: AXSystemAccessing, @unchecked Sendable {
     }
 
     func selectionElementFallback(of application: AXElementToken) throws -> AXElementToken {
+        let request = AXTraversalRequest(
+            timeoutSeconds: 1.0,
+            deadlineUptimeNanoseconds: DispatchTime.now().uptimeNanoseconds &+ 1_000_000_000
+        )
+        return try selectionElementFallback(of: application, request: request)
+    }
+
+    func selectionElementFallback(
+        of application: AXElementToken,
+        request: AXTraversalRequest
+    ) throws -> AXElementToken {
         var windowsValue: CFTypeRef?
         let windowsError = AXUIElementCopyAttributeValue(
             rawElement(application),
@@ -416,9 +503,23 @@ private final class DefaultAXSystem: AXSystemAccessing, @unchecked Sendable {
         while cursor < queue.count, cursor < maximumElements {
             let (element, depth) = queue[cursor]
             cursor += 1
+            let token = AXElementToken(raw: element)
+            let callGate = AXTraversalCallGate(request: request, clock: traversalClock)
+            guard let timeoutSeconds = callGate.timeoutSecondsRemaining() else {
+                throw AXOperationFailure.traversalExhausted
+            }
+            do {
+                try setMessagingTimeout(timeoutSeconds, for: token)
+            } catch AXOperationFailure.apiDisabled {
+                throw AXOperationFailure.apiDisabled
+            } catch AXOperationFailure.cannotComplete {
+                throw AXOperationFailure.traversalCannotComplete
+            } catch {
+                continue
+            }
 
             do {
-                if try hasNonemptySelection(element) {
+                if try hasNonemptySelection(element, request: request) {
                     return AXElementToken(raw: element)
                 }
             } catch AXOperationFailure.cannotComplete {
@@ -431,13 +532,28 @@ private final class DefaultAXSystem: AXSystemAccessing, @unchecked Sendable {
                 kAXVisibleChildrenAttribute,
                 "AXContents",
             ] {
+                let callGate = AXTraversalCallGate(request: request, clock: traversalClock)
+                guard callGate.timeoutSecondsRemaining() != nil else {
+                    throw AXOperationFailure.traversalExhausted
+                }
                 guard queue.count < maximumElements else { break }
                 var childrenValue: CFTypeRef?
-                let childrenError = AXUIElementCopyAttributeValue(
-                    element,
-                    attribute as CFString,
-                    &childrenValue
-                )
+                let childrenError: AXError
+                do {
+                    try beginTraversalCall(for: AXElementToken(raw: element), request: request)
+                    childrenError = AXUIElementCopyAttributeValue(
+                        element,
+                        attribute as CFString,
+                        &childrenValue
+                    )
+                } catch AXOperationFailure.traversalExhausted {
+                    throw AXOperationFailure.traversalExhausted
+                } catch AXOperationFailure.traversalCannotComplete {
+                    diagnosticHandler(.descendantTraversalCannotComplete)
+                    continue
+                } catch {
+                    continue
+                }
                 switch childrenError {
                 case .success:
                     if let children = childrenValue as? [AXUIElement] {
@@ -458,27 +574,119 @@ private final class DefaultAXSystem: AXSystemAccessing, @unchecked Sendable {
         throw AXOperationFailure.traversalExhausted
     }
 
-    private func hasNonemptySelection(_ element: AXUIElement) throws -> Bool {
+    private func hasNonemptySelection(
+        _ element: AXUIElement,
+        request: AXTraversalRequest
+    ) throws -> Bool {
         let token = AXElementToken(raw: element)
         do {
-            if try !selectedText(of: token).isEmpty { return true }
+            if try !selectedText(of: token, request: request).isEmpty { return true }
         } catch AXOperationFailure.unavailable {
         } catch {
             throw error
         }
         do {
-            if try !selectedTextFromTextMarkerRange(of: token).isEmpty { return true }
+            if try !selectedTextFromTextMarkerRange(of: token, request: request).isEmpty { return true }
         } catch AXOperationFailure.unavailable {
         } catch {
             throw error
         }
         do {
-            return try !selectedTextFromValueRange(of: token).isEmpty
+            return try !selectedTextFromValueRange(of: token, request: request).isEmpty
         } catch AXOperationFailure.unavailable {
             return false
         } catch {
             throw error
         }
+    }
+
+    private func beginTraversalCall(
+        for element: AXElementToken,
+        request: AXTraversalRequest
+    ) throws {
+        let gate = AXTraversalCallGate(request: request, clock: traversalClock)
+        guard let timeoutSeconds = gate.timeoutSecondsRemaining() else {
+            throw AXOperationFailure.traversalExhausted
+        }
+        do {
+            try setMessagingTimeout(timeoutSeconds, for: element)
+        } catch AXOperationFailure.apiDisabled {
+            throw AXOperationFailure.apiDisabled
+        } catch AXOperationFailure.cannotComplete {
+            throw AXOperationFailure.traversalCannotComplete
+        } catch {
+            throw AXOperationFailure.unavailable
+        }
+    }
+
+    private func selectedText(
+        of element: AXElementToken,
+        request: AXTraversalRequest
+    ) throws -> String {
+        try beginTraversalCall(for: element, request: request)
+        return try selectedText(of: element)
+    }
+
+    private func selectedTextFromTextMarkerRange(
+        of element: AXElementToken,
+        request: AXTraversalRequest
+    ) throws -> String {
+        try beginTraversalCall(for: element, request: request)
+        var rangeValue: CFTypeRef?
+        let rangeError = AXUIElementCopyAttributeValue(
+            rawElement(element),
+            "AXSelectedTextMarkerRange" as CFString,
+            &rangeValue
+        )
+        try requireSuccess(rangeError)
+        guard let rangeValue,
+              CFGetTypeID(rangeValue) == AXTextMarkerRangeGetTypeID() else {
+            throw AXOperationFailure.unavailable
+        }
+        try beginTraversalCall(for: element, request: request)
+        var textValue: CFTypeRef?
+        let textError = AXUIElementCopyParameterizedAttributeValue(
+            rawElement(element),
+            "AXStringForTextMarkerRange" as CFString,
+            rangeValue,
+            &textValue
+        )
+        try requireSuccess(textError)
+        guard let text = textValue as? String else {
+            throw AXOperationFailure.unavailable
+        }
+        return text
+    }
+
+    private func selectedTextFromValueRange(
+        of element: AXElementToken,
+        request: AXTraversalRequest
+    ) throws -> String {
+        try beginTraversalCall(for: element, request: request)
+        var rangeValue: CFTypeRef?
+        let rangeError = AXUIElementCopyAttributeValue(
+            rawElement(element),
+            kAXSelectedTextRangeAttribute as CFString,
+            &rangeValue
+        )
+        try requireSuccess(rangeError)
+        guard let rangeValue,
+              CFGetTypeID(rangeValue) == AXValueGetTypeID() else {
+            throw AXOperationFailure.unavailable
+        }
+        try beginTraversalCall(for: element, request: request)
+        var textValue: CFTypeRef?
+        let textError = AXUIElementCopyParameterizedAttributeValue(
+            rawElement(element),
+            kAXStringForRangeParameterizedAttribute as CFString,
+            rangeValue,
+            &textValue
+        )
+        try requireSuccess(textError)
+        guard let text = textValue as? String else {
+            throw AXOperationFailure.unavailable
+        }
+        return text
     }
 
     func selectedText(of element: AXElementToken) throws -> String {

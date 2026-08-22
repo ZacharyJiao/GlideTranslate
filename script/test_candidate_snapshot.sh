@@ -169,6 +169,7 @@ for probe_script in \
   check_compatibility_report.sh \
   test_local_ollama_preflight.sh \
   test_release_payload_inspection.sh \
+  test_adhoc_release_packaging.sh \
   test_download_bounded_asset.sh \
   test_safe_extract_asset.sh \
   test_external_surfaces.sh; do
