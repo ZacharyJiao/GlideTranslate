@@ -80,12 +80,25 @@ record_stage ACTIONLINT
 actionlint "$candidate_root/.github/workflows/ci.yml"
 record_stage SWIFTPM_TESTS
 DEVELOPER_DIR="$developer_dir" swift test --package-path "$candidate_root"
-record_stage XCODE_TESTS
+record_stage XCODE_UNIT_TESTS
 DEVELOPER_DIR="$developer_dir" xcodebuild \
   -project "$candidate_root/GlideTranslate.xcodeproj" \
   -scheme GlideTranslate \
   -configuration Debug \
   -destination 'platform=macOS' \
+  -only-testing:GlideTranslateTests \
+  CODE_SIGNING_ALLOWED=NO \
+  SWIFT_SUPPRESS_WARNINGS=NO \
+  SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
+  GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+  test
+record_stage XCODE_UI_TESTS
+DEVELOPER_DIR="$developer_dir" xcodebuild \
+  -project "$candidate_root/GlideTranslate.xcodeproj" \
+  -scheme GlideTranslate \
+  -configuration Debug \
+  -destination 'platform=macOS' \
+  -only-testing:GlideTranslateUITests \
   CODE_SIGNING_ALLOWED=NO \
   SWIFT_SUPPRESS_WARNINGS=NO \
   SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \

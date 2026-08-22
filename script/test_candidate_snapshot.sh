@@ -203,6 +203,7 @@ printf '%s\n' \
   'set -euo pipefail' \
   'project=""' \
   'configuration=""' \
+  'arguments="$*"' \
   'while [ "$#" -gt 0 ]; do' \
   '  case "$1" in' \
   '    -project) project="$2"; shift 2 ;;' \
@@ -210,6 +211,13 @@ printf '%s\n' \
   '    *) shift ;;' \
   '  esac' \
   'done' \
+  'if [ "$configuration" = Debug ]; then' \
+  '  case " $arguments " in' \
+  '    *" -only-testing:GlideTranslateTests "*) : > "$GT_PROBE_TMP_ROOT/xcode-unit"; if [ -n "${GT_PROBE_XCODE_UNIT_STATUS:-}" ]; then exit "$GT_PROBE_XCODE_UNIT_STATUS"; fi ;;' \
+  '    *" -only-testing:GlideTranslateUITests "*) : > "$GT_PROBE_TMP_ROOT/xcode-ui"; if [ -n "${GT_PROBE_XCODE_UI_STATUS:-}" ]; then exit "$GT_PROBE_XCODE_UI_STATUS"; fi ;;' \
+  '    *) exit 91 ;;' \
+  '  esac' \
+  'fi' \
   'if [ "${GT_PROBE_CLEANUP_FAILURE:-0}" -eq 1 ] && [ "$configuration" = Release ]; then' \
   '  candidate_root="${project%/GlideTranslate.xcodeproj}"' \
   '  printf "%s\n" blocked > "$candidate_root/cleanup-blocker"' \
@@ -230,6 +238,7 @@ run_aggregate_probe() {
       PATH="$probe_bin:$PATH" \
       TMPDIR="$probe_tmp/" \
       GT_PROBE_TMP_ROOT="$probe_tmp" \
+      GT_AGGREGATE_STAGE_FILE="$fixture_parent/$probe_name.stage" \
       GT_CANDIDATE_SOURCE_ROOT="$probe_source" \
       DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
       "$@" \
@@ -239,6 +248,30 @@ run_aggregate_probe() {
 }
 
 run_aggregate_probe aggregate-success
+test "$(/bin/cat "$fixture_parent/aggregate-success.stage")" = COMPLETE
+test -f "$probe_tmp/xcode-unit"
+test -f "$probe_tmp/xcode-ui"
+/bin/rm -f "$probe_tmp/xcode-unit" "$probe_tmp/xcode-ui"
+test -z "$(/usr/bin/find "$probe_tmp" -mindepth 1 -print -quit)"
+
+xcode_unit_status=0
+run_aggregate_probe aggregate-xcode-unit-failure \
+  GT_PROBE_XCODE_UNIT_STATUS=23 || xcode_unit_status=$?
+test "$xcode_unit_status" -eq 23
+test "$(/bin/cat "$fixture_parent/aggregate-xcode-unit-failure.stage")" = XCODE_UNIT_TESTS
+test -f "$probe_tmp/xcode-unit"
+test ! -e "$probe_tmp/xcode-ui"
+/bin/rm -f "$probe_tmp/xcode-unit"
+test -z "$(/usr/bin/find "$probe_tmp" -mindepth 1 -print -quit)"
+
+xcode_ui_status=0
+run_aggregate_probe aggregate-xcode-ui-failure \
+  GT_PROBE_XCODE_UI_STATUS=29 || xcode_ui_status=$?
+test "$xcode_ui_status" -eq 29
+test "$(/bin/cat "$fixture_parent/aggregate-xcode-ui-failure.stage")" = XCODE_UI_TESTS
+test -f "$probe_tmp/xcode-unit"
+test -f "$probe_tmp/xcode-ui"
+/bin/rm -f "$probe_tmp/xcode-unit" "$probe_tmp/xcode-ui"
 test -z "$(/usr/bin/find "$probe_tmp" -mindepth 1 -print -quit)"
 
 body_status=0

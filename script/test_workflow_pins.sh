@@ -185,6 +185,10 @@ rg -Fq 'aggregate_log="$RUNNER_TEMP/glidetranslate-candidate-aggregate.private.l
 rg -Fq './script/test_all.sh > "$aggregate_log" 2>&1' "$current_workflow"
 rg -Fq '/bin/rm -P "$aggregate_log"' "$current_workflow"
 rg -Fq "printf '%s\\n' CANDIDATE_AGGREGATE_PASSED" "$current_workflow"
+rg -Fq 'XCODE_UNIT_TESTS|XCODE_UI_TESTS' "$current_workflow"
+! rg -Fq '|XCODE_TESTS|' "$current_workflow"
+rg -Fq "printf 'CANDIDATE_AGGREGATE_FAILED:%s\\n' \"\$failed_stage\"" "$current_workflow"
+! rg -Fq 'cat "$aggregate_log"' "$current_workflow"
 test "$(rg -c 'shasum -a 256 -c - >[/]dev/null' "$current_workflow")" -eq 3
 ! rg -q '^[[:space:]]*run:[[:space:]]+[.]/script/test_all[.]sh[[:space:]]*$' \
   "$current_workflow"
