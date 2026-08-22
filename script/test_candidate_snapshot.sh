@@ -171,6 +171,7 @@ for probe_script in \
   test_release_payload_inspection.sh \
   test_summarize_xcode_unit_failure.sh \
   test_adhoc_release_packaging.sh \
+  test_audit_release_payload.sh \
   test_download_bounded_asset.sh \
   test_safe_extract_asset.sh \
   test_external_surfaces.sh; do
@@ -183,6 +184,11 @@ printf '%s\n' '#!/usr/bin/env bash' \
   ': > "$GT_PROBE_TMP_ROOT/xcode-summary-test"' \
   > "$probe_source/script/test_summarize_xcode_unit_failure.sh"
 /bin/chmod 755 "$probe_source/script/test_summarize_xcode_unit_failure.sh"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'set -euo pipefail' \
+  ': > "$GT_PROBE_TMP_ROOT/release-audit-test"' \
+  > "$probe_source/script/test_audit_release_payload.sh"
+/bin/chmod 755 "$probe_source/script/test_audit_release_payload.sh"
 printf '%s\n' \
   .github/workflows/ci.yml GlideTranslate.xcodeproj Package.swift script \
   > "$probe_source/script/public_paths.txt"
@@ -258,7 +264,8 @@ test "$(/bin/cat "$fixture_parent/aggregate-success.stage")" = COMPLETE
 test -f "$probe_tmp/xcode-unit"
 test -f "$probe_tmp/xcode-ui"
 test -f "$probe_tmp/xcode-summary-test"
-/bin/rm -f "$probe_tmp/xcode-unit" "$probe_tmp/xcode-ui" "$probe_tmp/xcode-summary-test"
+test -f "$probe_tmp/release-audit-test"
+/bin/rm -f "$probe_tmp/xcode-unit" "$probe_tmp/xcode-ui" "$probe_tmp/xcode-summary-test" "$probe_tmp/release-audit-test"
 test -z "$(/usr/bin/find "$probe_tmp" -mindepth 1 -print -quit)"
 
 xcode_unit_status=0
@@ -268,7 +275,7 @@ test "$xcode_unit_status" -eq 23
 test "$(/bin/cat "$fixture_parent/aggregate-xcode-unit-failure.stage")" = XCODE_UNIT_TESTS
 test -f "$probe_tmp/xcode-unit"
 test ! -e "$probe_tmp/xcode-ui"
-/bin/rm -f "$probe_tmp/xcode-unit" "$probe_tmp/xcode-summary-test"
+/bin/rm -f "$probe_tmp/xcode-unit" "$probe_tmp/xcode-summary-test" "$probe_tmp/release-audit-test"
 test -z "$(/usr/bin/find "$probe_tmp" -mindepth 1 -print -quit)"
 
 xcode_ui_status=0
@@ -278,13 +285,14 @@ test "$xcode_ui_status" -eq 29
 test "$(/bin/cat "$fixture_parent/aggregate-xcode-ui-failure.stage")" = XCODE_UI_TESTS
 test -f "$probe_tmp/xcode-unit"
 test -f "$probe_tmp/xcode-ui"
-/bin/rm -f "$probe_tmp/xcode-unit" "$probe_tmp/xcode-ui" "$probe_tmp/xcode-summary-test"
+/bin/rm -f "$probe_tmp/xcode-unit" "$probe_tmp/xcode-ui" "$probe_tmp/xcode-summary-test" "$probe_tmp/release-audit-test"
 test -z "$(/usr/bin/find "$probe_tmp" -mindepth 1 -print -quit)"
 
 body_status=0
 run_aggregate_probe aggregate-body-failure \
   GT_PROBE_SWIFT_STATUS=23 || body_status=$?
 test "$body_status" -eq 23
+/bin/rm -f "$probe_tmp/release-audit-test"
 test -z "$(/usr/bin/find "$probe_tmp" -mindepth 1 -print -quit)"
 
 cleanup_status=0

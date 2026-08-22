@@ -17,6 +17,7 @@ trap 'exit 143' TERM
 trap 'exit 129' HUP
 
 test -x "$checker"
+"$workspace_root/script/test_classify_release_uris.sh"
 
 accepted="$fixture_root/accepted"
 /bin/mkdir -p "$accepted"
@@ -77,6 +78,207 @@ assert_rejected loopback PROHIBITED_PRIVATE_ENDPOINT \
 private_tmp_marker='/'"private/tmp/private-build"
 assert_rejected private-tmp PROHIBITED_ABSOLUTE_PATH "$private_tmp_marker"
 
+release_payload_root="$fixture_root/release-payload"
+release_main_path="GlideTranslate.app/Contents/MacOS/GlideTranslate"
+/bin/mkdir -p "$release_payload_root/GlideTranslate.app/Contents/MacOS" \
+  "$release_payload_root/GlideTranslate.app/Contents/Resources"
+loopback_scheme='http:'"//"
+loopback_host='127.'"0.0.1"
+allowed_loopback="$loopback_scheme$loopback_host:11434"
+printf '%s\n' "$allowed_loopback" \
+  > "$release_payload_root/$release_main_path"
+release_status=0
+"$checker" --release-payload "$release_payload_root" \
+  > "$fixture_root/release-accepted.stdout" \
+  2> "$fixture_root/release-accepted.stderr" || release_status=$?
+test "$release_status" -eq 0
+test "$(/bin/cat "$fixture_root/release-accepted.stdout")" = EXTERNAL_SURFACE_SCAN_PASSED
+test ! -s "$fixture_root/release-accepted.stderr"
+
+# The exact loopback exception is scoped to the extracted main executable;
+# arbitrary-scheme local endpoints in resources must still be rejected.
+resource_scheme='ftp:'"//"
+printf '%s\n' "$resource_scheme$loopback_host:11434" \
+  > "$release_payload_root/GlideTranslate.app/Contents/Resources/config.txt"
+resource_path_status=0
+"$checker" --release-payload "$release_payload_root" \
+  > "$fixture_root/release-resource.stdout" \
+  2> "$fixture_root/release-resource.stderr" || resource_path_status=$?
+test "$resource_path_status" -ne 0
+rg -q '^PROHIBITED_PRIVATE_ENDPOINT:' "$fixture_root/release-resource.stderr"
+test ! -s "$fixture_root/release-resource.stdout"
+/bin/rm -f "$release_payload_root/GlideTranslate.app/Contents/Resources/config.txt"
+
+# The opaque diagnostic exception is restricted to the exact main executable
+# context and cannot mask a legacy loopback integer or resource-file token.
+printf '%s\n' 'radr://2130706433' \
+  > "$release_payload_root/$release_main_path"
+radr_main_status=0
+"$checker" --release-payload "$release_payload_root" \
+  > "$fixture_root/release-radr-main.stdout" \
+  2> "$fixture_root/release-radr-main.stderr" || radr_main_status=$?
+test "$radr_main_status" -ne 0
+rg -q '^PROHIBITED_PRIVATE_ENDPOINT:' "$fixture_root/release-radr-main.stderr"
+test ! -s "$fixture_root/release-radr-main.stdout"
+
+printf '%s\n' 'radr://5614542' \
+  > "$release_payload_root/GlideTranslate.app/Contents/Resources/radr.txt"
+radr_resource_status=0
+"$checker" --release-payload "$release_payload_root" \
+  > "$fixture_root/release-radr-resource.stdout" \
+  2> "$fixture_root/release-radr-resource.stderr" || radr_resource_status=$?
+test "$radr_resource_status" -ne 0
+rg -q '^PROHIBITED_PRIVATE_ENDPOINT:' "$fixture_root/release-radr-resource.stderr"
+test ! -s "$fixture_root/release-radr-resource.stdout"
+/bin/rm -f "$release_payload_root/$release_main_path" \
+  "$release_payload_root/GlideTranslate.app/Contents/Resources/radr.txt"
+
+printf '%s\n' "$allowed_loopback" 'radr://5614542' \
+  > "$release_payload_root/$release_main_path"
+
+uri_classifier_injection="$fixture_root/uri-classifier-injection"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'printf "%s\\n" "PASS" "URI_OUTPUT_INJECTION"' \
+  > "$uri_classifier_injection"
+/bin/chmod 755 "$uri_classifier_injection"
+injection_status=0
+RELEASE_URI_CLASSIFIER="$uri_classifier_injection" \
+  "$checker" --release-payload "$release_payload_root" \
+  > "$fixture_root/release-injection.stdout" \
+  2> "$fixture_root/release-injection.stderr" || injection_status=$?
+test "$injection_status" -eq 2
+test "$(/bin/cat "$fixture_root/release-injection.stderr")" = UNVERIFIABLE_SURFACE_SCAN
+test ! -s "$fixture_root/release-injection.stdout"
+! rg -Fq URI_OUTPUT_INJECTION "$fixture_root/release-injection.stdout" \
+  "$fixture_root/release-injection.stderr"
+
+uri_classifier_failure="$fixture_root/uri-classifier-failure"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 23' > "$uri_classifier_failure"
+/bin/chmod 755 "$uri_classifier_failure"
+classifier_failure_status=0
+RELEASE_URI_CLASSIFIER="$uri_classifier_failure" \
+  "$checker" --release-payload "$release_payload_root" \
+  > "$fixture_root/release-classifier-failure.stdout" \
+  2> "$fixture_root/release-classifier-failure.stderr" \
+  || classifier_failure_status=$?
+test "$classifier_failure_status" -eq 2
+test "$(/bin/cat "$fixture_root/release-classifier-failure.stderr")" = UNVERIFIABLE_SURFACE_SCAN
+test ! -s "$fixture_root/release-classifier-failure.stdout"
+
+uri_classifier_symlink="$fixture_root/uri-classifier-symlink"
+/bin/ln -s "$checker" "$uri_classifier_symlink"
+symlink_classifier_status=0
+RELEASE_URI_CLASSIFIER="$uri_classifier_symlink" \
+  "$checker" --release-payload "$release_payload_root" \
+  > "$fixture_root/release-classifier-symlink.stdout" \
+  2> "$fixture_root/release-classifier-symlink.stderr" \
+  || symlink_classifier_status=$?
+test "$symlink_classifier_status" -eq 2
+test "$(/bin/cat "$fixture_root/release-classifier-symlink.stderr")" = UNVERIFIABLE_SURFACE_SCAN
+test ! -s "$fixture_root/release-classifier-symlink.stdout"
+
+assert_release_rejected() {
+  name="$1"
+  value="$2"
+  relative_path="${3:-$release_main_path}"
+  root="$fixture_root/release-$name"
+  /bin/mkdir -p "$root/GlideTranslate.app/Contents/MacOS" \
+    "$root/GlideTranslate.app/Contents/Resources"
+  printf '%s\n' "$value" > "$root/$relative_path"
+  status=0
+  "$checker" --release-payload "$root" \
+    > "$fixture_root/release-$name.stdout" \
+    2> "$fixture_root/release-$name.stderr" || status=$?
+  test "$status" -ne 0
+  rg -q '^(PROHIBITED_PRIVATE_ENDPOINT|UNVERIFIABLE_SURFACE_URI):' \
+    "$fixture_root/release-$name.stderr"
+  test ! -s "$fixture_root/release-$name.stdout"
+}
+
+assert_release_rejected wrong-port \
+  "$loopback_scheme$loopback_host:11435"
+assert_release_rejected wrong-scheme \
+  'https:'"//$loopback_host:11434"
+assert_release_rejected localhost \
+  'http:'"//localhost:11434"
+assert_release_rejected wrong-path "$allowed_loopback" \
+  GlideTranslate.app/Contents/Resources/config.txt
+credential_endpoint="$loopback_scheme"'user:pass@'"$loopback_host:11434"
+assert_release_rejected credentials "$credential_endpoint"
+lan_host='192.'"168.1.10"
+assert_release_rejected lan \
+  "$loopback_scheme$lan_host:11434"
+mixed_value="$allowed_loopback $loopback_scheme$loopback_host:11435"
+assert_release_rejected mixed "$mixed_value"
+
+assert_release_rejected prefix-suffix "$allowed_loopback"'suffix'
+assert_release_rejected path-suffix "$allowed_loopback"'/api/tags'
+assert_release_rejected query-suffix "$allowed_loopback"'?token=private'
+assert_release_rejected fragment-suffix "$allowed_loopback"'#private'
+assert_release_rejected host-suffix "$allowed_loopback"'.example'
+assert_release_rejected shorthand "$loopback_scheme"'127.1:11434'
+assert_release_rejected integer "$loopback_scheme"'2130706433:11434'
+assert_release_rejected hexadecimal "$loopback_scheme"'0x7f000001:11434'
+assert_release_rejected octal "$loopback_scheme"'017700000001:11434'
+assert_release_rejected mapped-ipv4 "$loopback_scheme"'[::ffff:127.0.0.1]:11434'
+assert_release_rejected mapped-hex "$loopback_scheme"'[::ffff:7f00:1]:11434'
+assert_release_rejected expanded-ipv6 "$loopback_scheme"'[0:0:0:0:0:0:0:1]:11434'
+assert_release_rejected ipv6-loopback "$loopback_scheme"'[::1]:11434'
+
+assert_release_binary_allowed() {
+  name="$1"
+  value="$2"
+  root="$fixture_root/release-$name"
+  /bin/mkdir -p "$root/GlideTranslate.app/Contents/MacOS" \
+    "$root/GlideTranslate.app/Contents/Resources"
+  printf '%s\0' "$value" > "$root/$release_main_path"
+  status=0
+  "$checker" --release-payload "$root" \
+    > "$fixture_root/release-$name.stdout" \
+    2> "$fixture_root/release-$name.stderr" || status=$?
+  test "$status" -eq 0
+  test "$(/bin/cat "$fixture_root/release-$name.stdout")" = EXTERNAL_SURFACE_SCAN_PASSED
+  test ! -s "$fixture_root/release-$name.stderr"
+}
+
+assert_release_binary_allowed nul-delimited "$allowed_loopback"
+
+multiple_allowed_root="$fixture_root/release-multiple-allowed"
+/bin/mkdir -p "$multiple_allowed_root/GlideTranslate.app/Contents/MacOS" \
+  "$multiple_allowed_root/GlideTranslate.app/Contents/Resources"
+printf '%s %s' "$allowed_loopback" "$allowed_loopback" \
+  > "$multiple_allowed_root/$release_main_path"
+multiple_allowed_status=0
+"$checker" --release-payload "$multiple_allowed_root" \
+  > "$fixture_root/release-multiple-allowed.stdout" \
+  2> "$fixture_root/release-multiple-allowed.stderr" || multiple_allowed_status=$?
+test "$multiple_allowed_status" -eq 0
+test "$(/bin/cat "$fixture_root/release-multiple-allowed.stdout")" = EXTERNAL_SURFACE_SCAN_PASSED
+test ! -s "$fixture_root/release-multiple-allowed.stderr"
+
+mixed_nul_root="$fixture_root/release-mixed-nul"
+/bin/mkdir -p "$mixed_nul_root/GlideTranslate.app/Contents/MacOS" \
+  "$mixed_nul_root/GlideTranslate.app/Contents/Resources"
+printf '%s\0%s\0' "$allowed_loopback" "$loopback_scheme$loopback_host:11435" \
+  > "$mixed_nul_root/$release_main_path"
+mixed_nul_status=0
+"$checker" --release-payload "$mixed_nul_root" \
+  > "$fixture_root/release-mixed-nul.stdout" \
+  2> "$fixture_root/release-mixed-nul.stderr" || mixed_nul_status=$?
+test "$mixed_nul_status" -ne 0
+rg -q '^(PROHIBITED_PRIVATE_ENDPOINT|UNVERIFIABLE_SURFACE_TYPE):' \
+  "$fixture_root/release-mixed-nul.stderr"
+test ! -s "$fixture_root/release-mixed-nul.stdout"
+
+generic_release_status=0
+"$checker" "$release_payload_root" \
+  > "$fixture_root/release-generic.stdout" \
+  2> "$fixture_root/release-generic.stderr" || generic_release_status=$?
+test "$generic_release_status" -ne 0
+rg -q '^PROHIBITED_PRIVATE_ENDPOINT:' \
+  "$fixture_root/release-generic.stderr"
+test ! -s "$fixture_root/release-generic.stdout"
+
 assert_path_rejected() {
   name="$1"
   category="$2"
@@ -109,6 +311,25 @@ probe_status=0
   2> "$fixture_root/symlink.stderr" || probe_status=$?
 test "$probe_status" -ne 0
 rg -q '^PROHIBITED_SURFACE_SYMLINK:' "$fixture_root/symlink.stderr"
+
+surface_root_symlink="$fixture_root/surface-root-symlink"
+/bin/ln -s "$accepted" "$surface_root_symlink"
+surface_root_symlink_status=0
+"$checker" "$surface_root_symlink" \
+  > "$fixture_root/surface-root-symlink.stdout" \
+  2> "$fixture_root/surface-root-symlink.stderr" \
+  || surface_root_symlink_status=$?
+test "$surface_root_symlink_status" -eq 2
+test "$(/bin/cat "$fixture_root/surface-root-symlink.stderr")" = UNVERIFIABLE_SURFACE_ROOT
+test ! -s "$fixture_root/surface-root-symlink.stdout"
+
+wrong_arity_status=0
+"$checker" --release-payload "$release_payload_root" extra \
+  > "$fixture_root/wrong-arity.stdout" \
+  2> "$fixture_root/wrong-arity.stderr" || wrong_arity_status=$?
+test "$wrong_arity_status" -eq 2
+test "$(/bin/cat "$fixture_root/wrong-arity.stderr")" = UNVERIFIABLE_SURFACE_ROOT
+test ! -s "$fixture_root/wrong-arity.stdout"
 
 fifo_root="$fixture_root/fifo"
 /bin/mkdir -p "$fifo_root"

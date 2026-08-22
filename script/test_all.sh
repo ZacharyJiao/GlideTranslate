@@ -70,6 +70,8 @@ record_stage RELEASE_PAYLOAD_INSPECTION_TESTS
 "$candidate_root/script/test_release_payload_inspection.sh"
 record_stage ADHOC_RELEASE_PACKAGING_TESTS
 "$candidate_root/script/test_adhoc_release_packaging.sh"
+record_stage RELEASE_PAYLOAD_AUDIT_TESTS
+"$candidate_root/script/test_audit_release_payload.sh"
 record_stage BOUNDED_DOWNLOAD_TESTS
 "$candidate_root/script/test_download_bounded_asset.sh"
 record_stage SAFE_EXTRACTION_TESTS

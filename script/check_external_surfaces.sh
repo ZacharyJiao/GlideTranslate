@@ -2,8 +2,25 @@
 set -euo pipefail
 export LC_ALL=C
 
+script_dir="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || {
+  printf '%s\n' UNVERIFIABLE_SURFACE_ROOT >&2
+  exit 2
+}
+surface_mode=generic
+if [ "${1:-}" = --release-payload ]; then
+  surface_mode=release-payload
+  shift
+fi
 surface_input="${1:?surface root required}"
+test "$#" -eq 1 || {
+  printf '%s\n' UNVERIFIABLE_SURFACE_ROOT >&2
+  exit 2
+}
 test -d "$surface_input" || {
+  printf '%s\n' UNVERIFIABLE_SURFACE_ROOT >&2
+  exit 2
+}
+test ! -L "$surface_input" || {
   printf '%s\n' UNVERIFIABLE_SURFACE_ROOT >&2
   exit 2
 }
@@ -70,6 +87,8 @@ private_endpoint_pattern='https?://[^/@[:space:]]+:[^/@[:space:]]+@|https?://(lo
 private_key_pattern='BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY'
 content_marker_pattern='GT_PRIVATE_(USER_CONTENT|MODEL_CACHE|DIAGNOSTIC)|GLIDETRANSLATE_PRIVATE_CONTENT'
 email_pattern='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+[.][A-Za-z]{2,}'
+release_main_path=GlideTranslate.app/Contents/MacOS/GlideTranslate
+release_uri_classifier="${RELEASE_URI_CLASSIFIER:-$script_dir/classify_release_uris.py}"
 
 is_allowed_email() {
   local email="$1"
@@ -121,6 +140,63 @@ scan_absolute_path_status_for() {
   case "$rg_status" in 0) return 0 ;; 1) return 1 ;; *) printf '%s\n' UNVERIFIABLE_SURFACE_SCAN >&2; exit 2 ;; esac
 }
 
+scan_private_endpoint_status_for() {
+  local scan_path="$1"
+  local relative_path="$2"
+  if [ "$surface_mode" != release-payload ]; then
+    scan_status_for "$private_endpoint_pattern" "$scan_path"
+    return $?
+  fi
+
+  test -x "$release_uri_classifier" || {
+    printf '%s\n' UNVERIFIABLE_SURFACE_SCAN >&2
+    exit 2
+  }
+  test ! -L "$release_uri_classifier" || {
+    printf '%s\n' UNVERIFIABLE_SURFACE_SCAN >&2
+    exit 2
+  }
+  local classification_output="$private_root/release-uri-classification"
+  local classifier_status=0
+  local classifier_args=(--no-allow-exact "$scan_path")
+  if [ "$relative_path" = "$release_main_path" ]; then
+    classifier_args=(--allow-exact "$scan_path")
+  fi
+  "$release_uri_classifier" "${classifier_args[@]}" \
+    > "$classification_output" 2>> "$private_root/uri-classifier.private" \
+    || classifier_status=$?
+  local output_size output_lines classification
+  output_size="$(/usr/bin/stat -f '%z' "$classification_output" \
+    2>> "$private_root/stat.private")" || metadata_failure
+  case "$output_size" in ''|*[!0-9]*) metadata_failure ;; esac
+  [ "$output_size" -le 128 ] || {
+    printf '%s\n' UNVERIFIABLE_SURFACE_SCAN >&2
+    exit 2
+  }
+  output_lines="$(/usr/bin/awk 'END { print NR + 0 }' "$classification_output" \
+    2>> "$private_root/awk.private")" || metadata_failure
+  [ "$output_lines" -eq 1 ] || {
+    printf '%s\n' UNVERIFIABLE_SURFACE_SCAN >&2
+    exit 2
+  }
+  IFS= read -r classification < "$classification_output" || {
+    printf '%s\n' UNVERIFIABLE_SURFACE_SCAN >&2
+    exit 2
+  }
+  case "$classifier_status:$classification" in
+    0:PASS) return 1 ;;
+    1:PROHIBITED_PRIVATE_ENDPOINT) return 0 ;;
+    2:UNVERIFIABLE_SURFACE_URI)
+      report UNVERIFIABLE_SURFACE_URI "$relative_path"
+      exit 2
+      ;;
+    *)
+      printf '%s\n' UNVERIFIABLE_SURFACE_SCAN >&2
+      exit 2
+      ;;
+  esac
+}
+
 scan_unmasked_credential_status_for() {
   local scan_path="$1"
   local rg_status=0
@@ -155,7 +231,7 @@ scan_categories() {
   local relative_path="$2"
   if scan_absolute_path_status_for "$scan_target" "$relative_path"; then report PROHIBITED_ABSOLUTE_PATH "$relative_path"; fi
   if scan_status_for "$agent_pattern" "$scan_target"; then report PROHIBITED_AGENT_SURFACE "$relative_path"; fi
-  if scan_status_for "$private_endpoint_pattern" "$scan_target"; then report PROHIBITED_PRIVATE_ENDPOINT "$relative_path"; fi
+  if scan_private_endpoint_status_for "$scan_target" "$relative_path"; then report PROHIBITED_PRIVATE_ENDPOINT "$relative_path"; fi
   if scan_status_for "$private_key_pattern" "$scan_target" || \
      scan_unmasked_credential_status_for "$scan_target"; then
     report PROHIBITED_CREDENTIAL_CONTENT "$relative_path"
