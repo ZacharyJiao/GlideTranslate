@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">轻译</title>
+  <desc id="desc">一款本地优先的 macOS 翻译工具。所选文本经过明确的来源和目标检查后，发送给用户选择的本机或 OpenAI 兼容服务，并在小面板中显示结果。</desc>
+  <rect width="1200" height="420" rx="28" fill="#F4F7F5"/>
+  <path d="M64 44H1136" stroke="#C8D2CD" stroke-width="2"/>
+  <path d="M64 376H1136" stroke="#C8D2CD" stroke-width="2"/>
+
+  <g transform="translate(64 72)">
+    <text x="0" y="0" fill="#2F7D63" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" font-weight="700" letter-spacing="1.8">本地优先 · macOS 14+</text>
+    <text x="0" y="74" fill="#12201B" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="64" font-weight="750">轻译</text>
+    <text x="0" y="112" fill="#52625A" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="24">选中文字，得到清楚的翻译结果。</text>
+    <text x="0" y="150" fill="#52625A" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="24">可在本机使用 Ollama，也可配置自己的服务。</text>
+
+    <g transform="translate(0 208)">
+      <rect width="126" height="44" rx="12" fill="#12201B"/>
+      <text x="63" y="29" text-anchor="middle" fill="#FFFFFF" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20" font-weight="700">⌥ ⇧ D</text>
+      <text x="148" y="28" fill="#52625A" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="20">默认快捷键</text>
+    </g>
+  </g>
+
+  <g transform="translate(696 66)">
+    <rect width="440" height="288" rx="24" fill="#FFFFFF" stroke="#B9C7C0" stroke-width="2"/>
+    <text x="28" y="40" fill="#63706A" font-family="ui-monospace, SFMono-Regular, Menlo, PingFang SC, monospace" font-size="18" font-weight="700">一次请求 · 一个明确选择的服务</text>
+
+    <g transform="translate(28 66)">
+      <rect width="152" height="74" rx="14" fill="#E4F0EB" stroke="#2F7D63" stroke-width="2"/>
+      <text x="18" y="30" fill="#2F7D63" font-family="ui-monospace, SFMono-Regular, Menlo, PingFang SC, monospace" font-size="18" font-weight="700">01 选择文本</text>
+      <rect x="18" y="44" width="84" height="9" rx="4.5" fill="#D9A441"/>
+      <rect x="106" y="44" width="26" height="9" rx="4.5" fill="#C8D2CD"/>
+    </g>
+
+    <path d="M186 103H240" stroke="#2F7D63" stroke-width="3" stroke-linecap="round"/>
+    <path d="M234 96L242 103L234 110" fill="none" stroke="#2F7D63" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <g transform="translate(248 66)">
+      <rect width="164" height="74" rx="14" fill="#12201B"/>
+      <text x="18" y="30" fill="#FFFFFF" font-family="ui-monospace, SFMono-Regular, Menlo, PingFang SC, monospace" font-size="18" font-weight="700">02 检查权限</text>
+      <text x="18" y="56" fill="#BFD6CC" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="18">来源 + 目标</text>
+    </g>
+
+    <path d="M330 147V176" stroke="#2F7D63" stroke-width="3" stroke-linecap="round"/>
+    <path d="M323 170L330 178L337 170" fill="none" stroke="#2F7D63" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <g transform="translate(28 184)">
+      <rect width="384" height="76" rx="14" fill="#FAFBFA" stroke="#C8D2CD" stroke-width="2"/>
+      <circle cx="28" cy="25" r="7" fill="#2F7D63"/>
+      <text x="48" y="31" fill="#12201B" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="21" font-weight="650">流式翻译结果</text>
+      <text x="28" y="58" fill="#63706A" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="18">Ollama · OpenAI 兼容 · 不切换服务</text>
+    </g>
+  </g>
+
+  <text x="64" y="402" fill="#63706A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16">GLIDE TRANSLATE / 轻译</text>
+  <text x="1136" y="402" text-anchor="end" fill="#63706A" font-family="ui-monospace, SFMono-Regular, Menlo, PingFang SC, monospace" font-size="16">每次传输都由用户明确选择</text>
+</svg>

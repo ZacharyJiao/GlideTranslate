@@ -7,6 +7,7 @@ LICENSE
 PRIVACY.md
 Package.swift
 README.md
+README.zh-CN.md
 SECURITY.md
 Sources
 Tests
@@ -15,4 +16,5 @@ docs/building.md
 docs/compatibility.md
 docs/distribution.md
 docs/verification.md
+assets/readme
 script
