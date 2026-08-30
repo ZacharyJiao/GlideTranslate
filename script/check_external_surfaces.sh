@@ -208,6 +208,7 @@ scan_unmasked_credential_status_for() {
 
 scan_email_status_for() {
   local scan_path="$1"
+  local relative_path="$2"
   local email_matches="$private_root/emails"
   local email_status email
   : > "$email_matches"
@@ -217,6 +218,11 @@ scan_email_status_for() {
   case "$email_status" in
     0)
       while IFS= read -r email; do
+        if [ "$surface_mode" = release-payload ] &&
+           [ "$relative_path" = GlideTranslate.app/Contents/Resources/Assets.car ] &&
+           [[ "$email" =~ ^[A-Za-z0-9._-]+@[123]x[.]png$ ]]; then
+          continue
+        fi
         is_allowed_email "$email" || return 0
       done < "$email_matches"
       return 1
@@ -237,7 +243,7 @@ scan_categories() {
     report PROHIBITED_CREDENTIAL_CONTENT "$relative_path"
   fi
   if scan_status_for "$content_marker_pattern" "$scan_target"; then report PROHIBITED_CONTENT_MARKER "$relative_path"; fi
-  if scan_email_status_for "$scan_target"; then report PROHIBITED_PUBLIC_IDENTITY "$relative_path"; fi
+  if scan_email_status_for "$scan_target" "$relative_path"; then report PROHIBITED_PUBLIC_IDENTITY "$relative_path"; fi
 }
 
 while IFS= read -r -d '' path; do
@@ -298,6 +304,20 @@ while IFS= read -r -d '' path; do
   }
   case "$file_kind" in
     *ASCII\ text*|*UTF-8\ Unicode\ text*|*Unicode\ text*|*JSON*|*XML*|*property\ list*|*Zip\ archive*|*gzip\ compressed*|*tar\ archive*|*Mach-O*|*empty*) ;;
+    *Mac\ OS\ X\ icon*)
+      if [ "$surface_mode" != release-payload ] ||
+         [ "$relative_path" != GlideTranslate.app/Contents/Resources/AppIcon.icns ]; then
+        report UNVERIFIABLE_SURFACE_TYPE "$relative_path"
+        continue
+      fi
+      ;;
+    *Mac\ OS\ X\ bill\ of\ materials*)
+      if [ "$surface_mode" != release-payload ] ||
+         [ "$relative_path" != GlideTranslate.app/Contents/Resources/Assets.car ]; then
+        report UNVERIFIABLE_SURFACE_TYPE "$relative_path"
+        continue
+      fi
+      ;;
     *) report UNVERIFIABLE_SURFACE_TYPE "$relative_path"; continue ;;
   esac
   scan_categories "$path" "$relative_path"
