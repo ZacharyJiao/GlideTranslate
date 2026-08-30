@@ -245,6 +245,8 @@ while IFS= read -r -d '' path; do
       Products/Applications/GlideTranslate.app/Contents/Info.plist|\
       Products/Applications/GlideTranslate.app/Contents/PkgInfo|\
       Products/Applications/GlideTranslate.app/Contents/MacOS/GlideTranslate|\
+      Products/Applications/GlideTranslate.app/Contents/Resources/AppIcon.icns|\
+      Products/Applications/GlideTranslate.app/Contents/Resources/Assets.car|\
       Products/Applications/GlideTranslate.app/Contents/Resources/en.lproj/InfoPlist.strings|\
       Products/Applications/GlideTranslate.app/Contents/Resources/en.lproj/Localizable.strings|\
       Products/Applications/GlideTranslate.app/Contents/Resources/zh-Hans.lproj/InfoPlist.strings|\
@@ -260,6 +262,8 @@ while IFS= read -r -d '' path; do
       GlideTranslate.app/Contents/PkgInfo|\
       GlideTranslate.app/Contents/MacOS/GlideTranslate|\
       GlideTranslate.app/Contents/_CodeSignature/CodeResources|\
+      GlideTranslate.app/Contents/Resources/AppIcon.icns|\
+      GlideTranslate.app/Contents/Resources/Assets.car|\
       GlideTranslate.app/Contents/Resources/en.lproj/InfoPlist.strings|\
       GlideTranslate.app/Contents/Resources/en.lproj/Localizable.strings|\
       GlideTranslate.app/Contents/Resources/zh-Hans.lproj/InfoPlist.strings|\
@@ -314,7 +318,7 @@ while IFS= read -r -d '' path; do
     *Zip\ archive*|*gzip\ compressed*|*tar\ archive*|*executable*)
       report UNVERIFIABLE_PAYLOAD_TYPE "$relative_path"
       ;;
-    *ASCII\ text*|*UTF-8\ Unicode\ text*|*Unicode\ text*|*XML*|*JSON*|*property\ list*|*empty*)
+    *ASCII\ text*|*UTF-8\ Unicode\ text*|*Unicode\ text*|*XML*|*JSON*|*property\ list*|*Mac\ OS\ X\ icon*|*Mac\ OS\ X\ bill\ of\ materials*|*empty*)
       ;;
     *)
       report UNVERIFIABLE_PAYLOAD_TYPE "$relative_path"
