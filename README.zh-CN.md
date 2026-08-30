@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/release-v0.1.0-2f7d63" alt="v0.1.0 版本"></a>
+  <a href="https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-v0.2.0-00a850" alt="v0.2.0 版本"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-12201b" alt="需要 macOS 14 或更高版本">
   <img src="https://img.shields.io/badge/Apple%20Silicon-verified-12201b" alt="已在 Apple 芯片 Mac 上验证">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-d9a441" alt="MIT 许可证"></a>
@@ -15,14 +15,25 @@
 
 Glide Translate（轻译）是一款运行在 macOS 14 及更高版本上的菜单栏翻译应用。它可以翻译其他应用中选中的文字，也可以直接输入文本；默认使用本机 Ollama 模型，也支持用户自行配置的 OpenAI 兼容服务。
 
+本文档对应 **v0.2.0**。
+
 轻译以本地使用为默认方向，但并不意味着所有翻译都天然离线：文本会发送给当前请求所选的模型服务。应用会明确标示目标位于本机、局域网、云端，还是尚未确认；使用非本机目标前会要求确认。
 
 > [!IMPORTANT]
-> 当前可下载的 `v0.1.0` 是 Apple 芯片 Mac 的预发布版本。应用使用 ad hoc 签名检查包体完整性，但没有 Developer ID 签名，也没有经过 Apple 公证。首次打开前请先阅读[安装预发布版本](#安装预发布版本)。
+> 当前可下载的 `v0.2.0` 是 Apple 芯片 Mac 的预发布版本。应用使用 ad hoc 签名检查包体完整性，但没有 Developer ID 签名，也没有经过 Apple 公证。首次打开前请先阅读[安装预发布版本](#安装预发布版本)。
+
+## v0.2.0 使用体验
+
+源码版本在保持原有隐私模型的同时，提供了更清晰、更完整的 macOS 界面：
+
+- **自适应阅读面板。** 结果界面会选择紧凑、标准或阅读宽度，并按当前显示器空间限制增长；长结果保留在可选择文本的滚动区域中。用户离开底部后会出现“回到最新”，不会强行夺回阅读位置。
+- **菜单栏指令中心。** 运行状态、目标位置、当前预设、暂停或恢复、手动翻译、设置和明确触发的翻译操作集中在同一个可预测的界面中。
+- **统一的原生窗口。** 手动翻译、首次引导、设置、提示词编辑、历史记录和安全恢复操作使用一致的间距、字体、动效、键盘与辅助功能规则。
+- **同一套 Offset Focus 视觉。** AppIcon、明暗外观、Dock、Finder 和菜单栏模板严格复用石墨黑、翡翠绿、薄荷绿和岩灰色几何。
 
 ## 主要特点
 
-- **翻译所选文本。** 在其他应用中选中文字，按下 `⌥⇧D`，翻译结果会以流式方式显示在选区附近的小面板中。
+- **翻译所选文本。** 在其他应用中选中文字，按下 `⌥⇧D`，翻译结果会以流式方式显示在选区附近的自适应面板中。
 - **无需辅助功能权限的手动输入。** 明确触发快捷键但无法取得有效选区时，应用会打开手动翻译窗口。手动输入不会读取剪贴板。
 - **本地模型与自选服务。** 支持 Ollama 原生接口和 OpenAI 兼容接口。一次请求始终绑定到所选服务，不会在失败后悄悄切换到其他提供商。
 - **按需启用的自动捕获。** 鼠标和键盘选区捕获默认关闭；只有加入允许列表的应用才能启用。
@@ -46,13 +57,13 @@ Glide Translate（轻译）是一款运行在 macOS 14 及更高版本上的菜�
 
 ## 安装预发布版本
 
-[v0.1.0 预发布版本](https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.1.0)提供适用于 macOS 14 及更高版本的 Apple 芯片构建。
+[v0.2.0 预发布版本](https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.0)提供适用于 macOS 14 及更高版本的 Apple 芯片构建。
 
-1. 从发布页面同时下载 `GlideTranslate-0.1.0-macos-arm64.zip` 和 `GlideTranslate-0.1.0-macos-arm64.zip.sha256`。
+1. 从发布页面同时下载 `GlideTranslate-0.2.0-macos-arm64.zip` 和 `GlideTranslate-0.2.0-macos-arm64.zip.sha256`。
 2. 将两个文件放在同一目录，然后校验 ZIP：
 
    ```bash
-   /usr/bin/shasum -a 256 -c GlideTranslate-0.1.0-macos-arm64.zip.sha256
+   /usr/bin/shasum -a 256 -c GlideTranslate-0.2.0-macos-arm64.zip.sha256
    ```
 
 3. 只有命令显示 `OK` 时才继续，并在 Finder 中解压 ZIP。

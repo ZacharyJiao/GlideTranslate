@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/release-v0.1.0-2f7d63" alt="Release v0.1.0"></a>
+  <a href="https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-v0.2.0-00a850" alt="Release v0.2.0"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-12201b" alt="macOS 14 or later">
   <img src="https://img.shields.io/badge/Apple%20Silicon-verified-12201b" alt="Verified on Apple silicon">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-d9a441" alt="MIT License"></a>
@@ -15,14 +15,25 @@
 
 Glide Translate (轻译) is a menu-bar translation app for macOS 14 and later. It translates selected text or text entered manually, using a local Ollama model by default or an OpenAI-compatible service that you configure.
 
+This README documents **v0.2.0**.
+
 The app is local-first, but not “offline by definition”: text is sent to the provider selected for that request. Glide Translate shows whether a destination is on this Mac, on the local network, in the cloud, or unresolved, and asks for confirmation before using an off-device destination.
 
 > [!IMPORTANT]
-> The downloadable `v0.1.0` build is an Apple-silicon prerelease. It is ad hoc signed for bundle-integrity checks, but it is not Developer ID signed or notarized. Read [Install the prerelease](#install-the-prerelease) before opening it.
+> The downloadable `v0.2.0` build is an Apple-silicon prerelease. It is ad hoc signed for bundle-integrity checks, but it is not Developer ID signed or notarized. Read [Install the prerelease](#install-the-prerelease) before opening it.
+
+## The v0.2.0 experience
+
+The source tree now presents the same privacy model through a calmer, more capable macOS interface:
+
+- **Adaptive reading panel.** The result surface chooses a compact, standard, or reading width, caps growth to the selected display, and keeps long output in a selectable scrolling region. Scrolling away reveals **Back to Latest** without taking control from the reader.
+- **Menu-bar command center.** The menu shows runtime status, destination locality, the active preset, pause/resume, manual translation, Settings, and the explicit translate action in one predictable surface.
+- **Unified native windows.** Manual translation, onboarding, Settings, prompt editing, history, and safe recovery actions share the same spacing, typography, motion, keyboard, and accessibility rules.
+- **One Offset Focus identity.** AppIcon, Light and Dark appearances, Dock, Finder, and the menu-bar template reuse the same graphite, emerald, mint, and slate geometry.
 
 ## Highlights
 
-- **Selected-text translation.** Select text in another app, press `⌥⇧D`, and read the streamed result in a small panel near the selection.
+- **Selected-text translation.** Select text in another app, press `⌥⇧D`, and read the streamed result in an adaptive panel near the selection.
 - **Manual input without Accessibility access.** If there is no usable selection, the explicit shortcut opens the manual translation window. Manual input does not read the clipboard.
 - **Local and self-chosen providers.** Use Ollama's native API or an OpenAI-compatible endpoint. Requests stay with the selected provider; the app does not silently fall back to another service.
 - **Opt-in automatic capture.** Mouse and keyboard selection capture are disabled by default and can be enabled only for applications you add to the allowlist.
@@ -46,13 +57,13 @@ Automatic capture has a narrower path than the explicit shortcut: it requires gl
 
 ## Install the prerelease
 
-The [v0.1.0 prerelease](https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.1.0) provides an Apple-silicon build for macOS 14 or later.
+The [v0.2.0 prerelease](https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.0) provides an Apple-silicon build for macOS 14 or later.
 
-1. Download both `GlideTranslate-0.1.0-macos-arm64.zip` and `GlideTranslate-0.1.0-macos-arm64.zip.sha256` from the release page.
+1. Download both `GlideTranslate-0.2.0-macos-arm64.zip` and `GlideTranslate-0.2.0-macos-arm64.zip.sha256` from the release page.
 2. Put both files in the same directory and verify the ZIP:
 
    ```bash
-   /usr/bin/shasum -a 256 -c GlideTranslate-0.1.0-macos-arm64.zip.sha256
+   /usr/bin/shasum -a 256 -c GlideTranslate-0.2.0-macos-arm64.zip.sha256
    ```
 
 3. Continue only when the command reports `OK`, then extract the ZIP in Finder.
