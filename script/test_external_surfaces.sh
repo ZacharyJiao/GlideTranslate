@@ -87,6 +87,10 @@ loopback_host='127.'"0.0.1"
 allowed_loopback="$loopback_scheme$loopback_host:11434"
 printf '%s\n' "$allowed_loopback" \
   > "$release_payload_root/$release_main_path"
+printf 'icns\000\000\000\010' \
+  > "$release_payload_root/GlideTranslate.app/Contents/Resources/AppIcon.icns"
+printf 'BOMStoreMenuBarTemplate@2x.png' \
+  > "$release_payload_root/GlideTranslate.app/Contents/Resources/Assets.car"
 release_status=0
 "$checker" --release-payload "$release_payload_root" \
   > "$fixture_root/release-accepted.stdout" \
@@ -94,6 +98,53 @@ release_status=0
 test "$release_status" -eq 0
 test "$(/bin/cat "$fixture_root/release-accepted.stdout")" = EXTERNAL_SURFACE_SCAN_PASSED
 test ! -s "$fixture_root/release-accepted.stderr"
+
+wrong_release_type_root="$fixture_root/release-wrong-compiled-resource-path"
+/bin/mkdir -p "$wrong_release_type_root/GlideTranslate.app/Contents/MacOS" \
+  "$wrong_release_type_root/GlideTranslate.app/Contents/Resources/Unexpected"
+printf '%s\n' "$allowed_loopback" \
+  > "$wrong_release_type_root/$release_main_path"
+printf 'icns\000\000\000\010' \
+  > "$wrong_release_type_root/GlideTranslate.app/Contents/Resources/Unexpected/AppIcon.icns"
+wrong_release_type_status=0
+"$checker" --release-payload "$wrong_release_type_root" \
+  > "$fixture_root/release-wrong-compiled-resource-path.stdout" \
+  2> "$fixture_root/release-wrong-compiled-resource-path.stderr" \
+  || wrong_release_type_status=$?
+test "$wrong_release_type_status" -ne 0
+rg -q '^UNVERIFIABLE_SURFACE_TYPE:' \
+  "$fixture_root/release-wrong-compiled-resource-path.stderr"
+test ! -s "$fixture_root/release-wrong-compiled-resource-path.stdout"
+
+generic_compiled_resource_root="$fixture_root/generic-compiled-resource"
+/bin/mkdir -p "$generic_compiled_resource_root"
+printf 'BOMStore' > "$generic_compiled_resource_root/Assets.car"
+generic_compiled_resource_status=0
+"$checker" "$generic_compiled_resource_root" \
+  > "$fixture_root/generic-compiled-resource.stdout" \
+  2> "$fixture_root/generic-compiled-resource.stderr" \
+  || generic_compiled_resource_status=$?
+test "$generic_compiled_resource_status" -ne 0
+rg -q '^UNVERIFIABLE_SURFACE_TYPE:' \
+  "$fixture_root/generic-compiled-resource.stderr"
+test ! -s "$fixture_root/generic-compiled-resource.stdout"
+
+release_asset_identity_root="$fixture_root/release-asset-identity"
+/bin/mkdir -p "$release_asset_identity_root/GlideTranslate.app/Contents/MacOS" \
+  "$release_asset_identity_root/GlideTranslate.app/Contents/Resources"
+printf '%s\n' "$allowed_loopback" \
+  > "$release_asset_identity_root/$release_main_path"
+printf 'BOMStoreprivate-person@example.com' \
+  > "$release_asset_identity_root/GlideTranslate.app/Contents/Resources/Assets.car"
+release_asset_identity_status=0
+"$checker" --release-payload "$release_asset_identity_root" \
+  > "$fixture_root/release-asset-identity.stdout" \
+  2> "$fixture_root/release-asset-identity.stderr" \
+  || release_asset_identity_status=$?
+test "$release_asset_identity_status" -ne 0
+rg -q '^PROHIBITED_PUBLIC_IDENTITY:' \
+  "$fixture_root/release-asset-identity.stderr"
+test ! -s "$fixture_root/release-asset-identity.stdout"
 
 # The exact loopback exception is scoped to the extracted main executable;
 # arbitrary-scheme local endpoints in resources must still be rejected.
