@@ -7,15 +7,46 @@ enum PanelPlacementReason: Equatable, Sendable {
     case clamped
 }
 
+enum PanelAnchorSide: Equatable, Sendable {
+    case below
+    case above
+    case pointer
+}
+
+enum PanelPointerCorner: Equatable, Sendable {
+    case topLeft
+    case topRight
+    case bottomLeft
+    case bottomRight
+}
+
+struct PanelDisplay: Equatable, Sendable {
+    let id: String
+    let visibleFrame: CGRect
+}
+
 struct PanelPlacement: Equatable, Sendable {
     let frame: CGRect
     let displayIndex: Int
+    let displayID: String
     let reason: PanelPlacementReason
+    let side: PanelAnchorSide
+    let pointerCorner: PanelPointerCorner?
 
-    init(frame: CGRect, displayIndex: Int, reason: PanelPlacementReason) {
+    init(
+        frame: CGRect,
+        displayIndex: Int,
+        displayID: String? = nil,
+        reason: PanelPlacementReason,
+        side: PanelAnchorSide,
+        pointerCorner: PanelPointerCorner? = nil
+    ) {
         self.frame = frame
         self.displayIndex = displayIndex
+        self.displayID = displayID ?? "display-\(displayIndex)"
         self.reason = reason
+        self.side = side
+        self.pointerCorner = pointerCorner
     }
 }
 
@@ -28,10 +59,34 @@ enum PanelPlacementResolver {
         pointer: CGPoint,
         visibleFrames: [CGRect],
         panelSize: CGSize = defaultPanelSize,
-        gap: CGFloat = defaultGap
+        gap: CGFloat = defaultGap,
+        preferredSide: PanelAnchorSide? = nil,
+        preferredPointerCorner: PanelPointerCorner? = nil
     ) -> PanelPlacement? {
-        let usableDisplays = visibleFrames.enumerated().filter {
-            $0.element.isUsableVisibleFrame
+        resolve(
+            selection: selection,
+            pointer: pointer,
+            displays: visibleFrames.enumerated().map {
+                PanelDisplay(id: "display-\($0.offset)", visibleFrame: $0.element)
+            },
+            panelSize: panelSize,
+            gap: gap,
+            preferredSide: preferredSide,
+            preferredPointerCorner: preferredPointerCorner
+        )
+    }
+
+    static func resolve(
+        selection: CGRect?,
+        pointer: CGPoint,
+        displays: [PanelDisplay],
+        panelSize: CGSize = defaultPanelSize,
+        gap: CGFloat = defaultGap,
+        preferredSide: PanelAnchorSide? = nil,
+        preferredPointerCorner: PanelPointerCorner? = nil
+    ) -> PanelPlacement? {
+        let usableDisplays = displays.enumerated().filter {
+            $0.element.visibleFrame.isUsableVisibleFrame
         }
         guard let firstDisplay = usableDisplays.first else { return nil }
 
@@ -40,20 +95,20 @@ enum PanelPlacementResolver {
         }
         let usablePointer = pointer.isFinite ? pointer : nil
         let fallbackCenter = CGPoint(
-            x: firstDisplay.element.midX,
-            y: firstDisplay.element.midY
+            x: firstDisplay.element.visibleFrame.midX,
+            y: firstDisplay.element.visibleFrame.midY
         )
         let anchor = usableSelection.map {
             CGPoint(x: $0.midX, y: $0.midY)
         } ?? usablePointer ?? fallbackCenter
 
         let chosenDisplay = usableDisplays.first(where: {
-            $0.element.contains(anchor)
+            $0.element.visibleFrame.contains(anchor)
         }) ?? usableDisplays.min(by: {
-            $0.element.distanceSquared(to: anchor)
-                < $1.element.distanceSquared(to: anchor)
+            $0.element.visibleFrame.distanceSquared(to: anchor)
+                < $1.element.visibleFrame.distanceSquared(to: anchor)
         }) ?? firstDisplay
-        let visibleFrame = chosenDisplay.element
+        let visibleFrame = chosenDisplay.element.visibleFrame
 
         let requestedSize = panelSize.isFiniteAndPositive
             ? panelSize
@@ -78,26 +133,65 @@ enum PanelPlacementResolver {
                 width: fittedSize.width,
                 height: fittedSize.height
             )
-            if visibleFrame.contains(below), !below.intersects(selection) {
-                return PanelPlacement(
-                    frame: below,
-                    displayIndex: chosenDisplay.offset,
-                    reason: sizeWasClamped || xWasClamped ? .clamped : .below
-                )
-            }
-
             let above = CGRect(
                 x: candidateX,
                 y: selection.maxY + effectiveGap,
                 width: fittedSize.width,
                 height: fittedSize.height
             )
-            if visibleFrame.contains(above), !above.intersects(selection) {
+            let belowFits = visibleFrame.contains(below)
+                && !below.intersects(selection)
+            let aboveFits = visibleFrame.contains(above)
+                && !above.intersects(selection)
+            let belowSpace = max(
+                0,
+                selection.minY - visibleFrame.minY - effectiveGap
+            )
+            let aboveSpace = max(
+                0,
+                visibleFrame.maxY - selection.maxY - effectiveGap
+            )
+
+            let preferred = preferredSide ?? {
+                if belowFits && aboveFits {
+                    return belowSpace >= aboveSpace ? PanelAnchorSide.below : .above
+                }
+                if belowFits { return .below }
+                if aboveFits { return .above }
+                return belowSpace >= aboveSpace ? .below : .above
+            }()
+
+            switch preferred {
+            case .below where belowFits:
+                return PanelPlacement(
+                    frame: below,
+                    displayIndex: chosenDisplay.offset,
+                    displayID: chosenDisplay.element.id,
+                    reason: sizeWasClamped || xWasClamped ? .clamped : .below,
+                    side: .below
+                )
+            case .above where aboveFits:
                 return PanelPlacement(
                     frame: above,
                     displayIndex: chosenDisplay.offset,
-                    reason: sizeWasClamped || xWasClamped ? .clamped : .above
+                    displayID: chosenDisplay.element.id,
+                    reason: sizeWasClamped || xWasClamped ? .clamped : .above,
+                    side: .above
                 )
+            case .below, .above:
+                // A capped size should normally fit the chosen side. Keep the
+                // side stable if an external frame changed between measures.
+                let candidate = preferred == .below ? below : above
+                let clamped = candidate.clamped(to: visibleFrame)
+                return PanelPlacement(
+                    frame: clamped,
+                    displayIndex: chosenDisplay.offset,
+                    displayID: chosenDisplay.element.id,
+                    reason: .clamped,
+                    side: preferred
+                )
+            case .pointer:
+                break
             }
         }
 
@@ -105,18 +199,60 @@ enum PanelPlacementResolver {
             x: visibleFrame.midX,
             y: visibleFrame.midY
         )
-        let pointerFrame = CGRect(
-            x: pointerAnchor.x + effectiveGap,
-            y: pointerAnchor.y - fittedSize.height - effectiveGap,
-            width: fittedSize.width,
-            height: fittedSize.height
+        let pointerCorner = preferredPointerCorner ?? preferredCorner(
+            pointer: pointerAnchor,
+            visibleFrame: visibleFrame,
+            gap: effectiveGap
+        )
+        let pointerFrame = frame(
+            size: fittedSize,
+            pointer: pointerAnchor,
+            gap: effectiveGap,
+            corner: pointerCorner
         )
         let finalFrame = pointerFrame.clamped(to: visibleFrame)
         return PanelPlacement(
             frame: finalFrame,
             displayIndex: chosenDisplay.offset,
-            reason: sizeWasClamped || finalFrame != pointerFrame ? .clamped : .pointer
+            displayID: chosenDisplay.element.id,
+            reason: sizeWasClamped || finalFrame != pointerFrame ? .clamped : .pointer,
+            side: .pointer,
+            pointerCorner: pointerCorner
         )
+    }
+
+    static func frame(
+        size: CGSize,
+        pointer: CGPoint,
+        gap: CGFloat = defaultGap,
+        corner: PanelPointerCorner
+    ) -> CGRect {
+        let x: CGFloat = switch corner {
+        case .topLeft, .bottomLeft: pointer.x + gap
+        case .topRight, .bottomRight: pointer.x - gap - size.width
+        }
+        let y: CGFloat = switch corner {
+        case .topLeft, .topRight: pointer.y - gap - size.height
+        case .bottomLeft, .bottomRight: pointer.y + gap
+        }
+        return CGRect(origin: CGPoint(x: x, y: y), size: size)
+    }
+
+    private static func preferredCorner(
+        pointer: CGPoint,
+        visibleFrame: CGRect,
+        gap: CGFloat
+    ) -> PanelPointerCorner {
+        let useRight = visibleFrame.maxX - pointer.x - gap
+            >= pointer.x - visibleFrame.minX - gap
+        let useBelow = pointer.y - visibleFrame.minY - gap
+            >= visibleFrame.maxY - pointer.y - gap
+        return switch (useRight, useBelow) {
+        case (true, true): .topLeft
+        case (false, true): .topRight
+        case (true, false): .bottomLeft
+        case (false, false): .bottomRight
+        }
     }
 
     private static func clamp(
@@ -138,7 +274,7 @@ private extension CGSize {
     }
 }
 
-private extension CGRect {
+extension CGRect {
     var isFiniteAndNonnegative: Bool {
         origin.x.isFinite
             && origin.y.isFinite

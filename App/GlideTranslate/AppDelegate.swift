@@ -273,9 +273,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
     @objc private func showSyntheticResultPanel() {
         guard let controller = uiTestingPanelController else { return }
+        let resultText = UITestingMode.includes("--ui-testing-long-result")
+            ? String(repeating: "synthetic result line ", count: 200)
+            : "focus-fixture-result"
         let presentation = TranslationPresentation(
             sourceText: "focus-fixture-source",
-            resultText: "focus-fixture-result",
+            resultText: resultText,
             presetID: PresetID(rawValue: "translate"),
             sourceLanguage: .automatic,
             targetLanguage: .identified("en"),
@@ -284,7 +287,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             phase: .completed
         )
         controller.showTemporary(
-            presentation,
+            TranslationPresentation(
+                sourceText: presentation.sourceText,
+                resultText: "",
+                presetID: presentation.presetID,
+                sourceLanguage: presentation.sourceLanguage,
+                targetLanguage: presentation.targetLanguage,
+                providerClass: presentation.providerClass,
+                displayRect: presentation.displayRect,
+                phase: .preparing
+            ),
             actions: ResultPanelActions(
                 copy: {
                     DistributedNotificationCenter.default().post(
@@ -298,6 +310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                 close: { [weak controller] in controller?.dismissTemporary() }
             )
         )
+        controller.updateTemporary(presentation)
     }
 }
 

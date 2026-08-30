@@ -52,6 +52,31 @@ final class SafeMarkdownRendererTests: XCTestCase {
         XCTAssertNil(attributed.attribute(.attachment, at: 0, effectiveRange: nil))
     }
 
+    func testTranslationBodyUsesSemanticSerifAndFourPointLineSpacing() throws {
+        let attributed = SafeMarkdownRenderer().render(
+            SafeMarkdownParser().parse("synthetic reading text")
+        )
+        let font = try XCTUnwrap(
+            attributed.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
+        )
+        let paragraph = try XCTUnwrap(
+            attributed.attribute(
+                .paragraphStyle,
+                at: 0,
+                effectiveRange: nil
+            ) as? NSParagraphStyle
+        )
+        let semanticBody = NSFont.preferredFont(forTextStyle: .body)
+
+        XCTAssertEqual(font.pointSize, semanticBody.pointSize, accuracy: 0.001)
+        XCTAssertNotEqual(font.familyName, semanticBody.familyName)
+        XCTAssertEqual(
+            paragraph.lineSpacing,
+            GlideVisualTokens.outputAdditionalLineSpacing,
+            accuracy: 0.001
+        )
+    }
+
     private func assertOnlySafeAttributes(in attributed: NSAttributedString) {
         let permitted: Set<NSAttributedString.Key> = [
             .font,

@@ -14,13 +14,17 @@ private final class AppKitSettingsWindow: NSObject, SettingsWindowDisplaying, NS
 
     init(rootView: AnyView) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 760, height: 560),
+            contentRect: NSRect(x: 0, y: 0, width: 820, height: 620),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = String(localized: "menu.settings")
             .trimmingCharacters(in: CharacterSet(charactersIn: ".…"))
+        window.minSize = NSSize(width: 760, height: 560)
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.styleMask.insert(.fullSizeContentView)
         window.contentViewController = NSHostingController(rootView: rootView)
         window.isReleasedWhenClosed = false
         window.collectionBehavior.insert(.moveToActiveSpace)

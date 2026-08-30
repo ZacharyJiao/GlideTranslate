@@ -40,7 +40,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 The helper writes DerivedData under `.build/xcode-derived-data`. It does not
 create a signed distribution artifact.
 
-## Build the ad hoc-signed MVP package
+## Build the ad hoc-signed package
 
 The release helper produces an Apple-silicon ZIP with an ad hoc signature. That
 signature detects bundle changes but does not establish Apple trust and cannot
@@ -57,8 +57,8 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 
 The package directory must not already exist. A successful run creates exactly:
 
-- `GlideTranslate-0.1.0-macos-arm64.zip`
-- `GlideTranslate-0.1.0-macos-arm64.zip.sha256`
+- `GlideTranslate-0.2.0-macos-arm64.zip`
+- `GlideTranslate-0.2.0-macos-arm64.zip.sha256`
 
 The packager verifies the version, build number, arm64 architecture, hardened-
 runtime flag, empty approved entitlements, ad hoc identity, absence of a

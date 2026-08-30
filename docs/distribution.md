@@ -1,6 +1,6 @@
 # Distribution
 
-When `v0.1.0` is published on GitHub Releases, its downloadable MVP is an
+When `v0.2.0` is published on GitHub Releases, its downloadable package is an
 Apple-silicon application for macOS 14 or later. Its ad hoc signature provides
 bundle-integrity verification only. The application has no Apple-trusted
 Developer ID signature, notarization ticket, App Store receipt, automatic
@@ -12,14 +12,14 @@ expected to reject an ordinary double-click on first launch.
 If that release is present, download both files for the same version from
 [GitHub Releases](https://github.com/ZacharyJiao/GlideTranslate/releases):
 
-- `GlideTranslate-0.1.0-macos-arm64.zip`
-- `GlideTranslate-0.1.0-macos-arm64.zip.sha256`
+- `GlideTranslate-0.2.0-macos-arm64.zip`
+- `GlideTranslate-0.2.0-macos-arm64.zip.sha256`
 
 Place them in the same directory, then verify the downloaded bytes:
 
 ```bash
 cd /path/to/download-directory
-/usr/bin/shasum -a 256 -c GlideTranslate-0.1.0-macos-arm64.zip.sha256
+/usr/bin/shasum -a 256 -c GlideTranslate-0.2.0-macos-arm64.zip.sha256
 ```
 
 The command must report `OK`. Do not open the application when the checksum

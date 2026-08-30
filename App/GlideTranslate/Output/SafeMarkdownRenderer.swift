@@ -60,7 +60,15 @@ struct SafeMarkdownRenderer: Sendable {
     }
 
     private var baseFont: NSFont {
-        NSFont.systemFont(ofSize: NSFont.systemFontSize)
+        let semanticBody = NSFont.preferredFont(forTextStyle: .body)
+        guard let serifDescriptor = semanticBody.fontDescriptor.withDesign(.serif),
+              let serif = NSFont(
+                  descriptor: serifDescriptor,
+                  size: semanticBody.pointSize
+              ) else {
+            return semanticBody
+        }
+        return serif
     }
 
     private var emphasisFont: NSFont {
@@ -68,7 +76,7 @@ struct SafeMarkdownRenderer: Sendable {
     }
 
     private var strongFont: NSFont {
-        NSFont.systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
+        NSFontManager.shared.convert(baseFont, toHaveTrait: .boldFontMask)
     }
 
     private var codeFont: NSFont {
@@ -80,14 +88,14 @@ struct SafeMarkdownRenderer: Sendable {
 
     private var paragraphStyle: NSParagraphStyle {
         let style = NSMutableParagraphStyle()
-        style.lineSpacing = 2
+        style.lineSpacing = GlideVisualTokens.outputAdditionalLineSpacing
         style.paragraphSpacing = 8
         return style.copy() as! NSParagraphStyle
     }
 
     private var listStyle: NSParagraphStyle {
         let style = NSMutableParagraphStyle()
-        style.lineSpacing = 2
+        style.lineSpacing = GlideVisualTokens.outputAdditionalLineSpacing
         style.paragraphSpacing = 4
         style.headIndent = 14
         style.firstLineHeadIndent = 0

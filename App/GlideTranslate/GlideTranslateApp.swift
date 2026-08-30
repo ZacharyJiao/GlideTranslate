@@ -19,7 +19,13 @@ struct GlideTranslateApp: App {
             }
         } label: {
             ObservedProductionRoot(appDelegate: appDelegate) { root in
-                Label("app.name", systemImage: root.sceneState.menuModel.stateSymbol)
+                Label {
+                    Text("app.name")
+                } icon: {
+                    MenuBarStatusGlyph(model: root.sceneState.menuModel)
+                }
+                    .accessibilityIdentifier("menu-bar-status-item")
+                    .accessibilityLabel(root.sceneState.menuModel.stateTextKey)
                     .background(
                         ZStack {
                             ManualWindowRequestBridge(
@@ -28,14 +34,38 @@ struct GlideTranslateApp: App {
                             OnboardingWindowRequestBridge(
                                 presenter: root.sceneState.onboardingPresenter
                             )
+                            MenuCommandCenterTestingBridge()
                         }
                     )
             } unavailable: { _ in
                 Label("app.name", systemImage: "hourglass")
+                    .accessibilityIdentifier("menu-bar-status-item")
             }
         }
-        .menuBarExtraStyle(.menu)
+        .menuBarExtraStyle(.window)
         .environment(\.locale, AppUILocaleState.shared.current)
+
+        Window("app.name", id: "menu-command-center-testing") {
+            if UITestingMode.includes("--ui-testing-command-center") {
+                ObservedProductionRoot(appDelegate: appDelegate) { root in
+                    MenuBarContent(
+                        model: root.sceneState.menuModel,
+                        presetOptions: root.sceneState.presetOptions,
+                        actions: root.sceneState.menuActions
+                    )
+                    .environment(\.locale, root.settingsViewModel.uiLocale)
+                } unavailable: { delegate in
+                    ProductionStartupContent(delegate: delegate)
+                }
+            } else {
+                EmptyView()
+            }
+        }
+        .defaultSize(
+            width: MenuBarCommandCenterContract.contentWidth,
+            height: MenuBarCommandCenterContract.maximumHeight
+        )
+        .windowResizability(.contentSize)
 
         Window("manual.title", id: "manual-input") {
             ObservedProductionRoot(appDelegate: appDelegate) { root in
@@ -48,7 +78,7 @@ struct GlideTranslateApp: App {
                 ProductionStartupContent(delegate: delegate)
             }
         }
-        .defaultSize(width: 560, height: 420)
+        .defaultSize(width: 620, height: 480)
         .windowResizability(.contentMinSize)
         .environment(\.locale, AppUILocaleState.shared.current)
 
@@ -64,7 +94,7 @@ struct GlideTranslateApp: App {
                 ProductionStartupContent(delegate: delegate)
             }
         }
-        .defaultSize(width: 620, height: 480)
+        .defaultSize(width: 640, height: 520)
         .environment(\.locale, AppUILocaleState.shared.current)
 
         Settings {
@@ -75,8 +105,50 @@ struct GlideTranslateApp: App {
                 ProductionStartupContent(delegate: delegate)
             }
         }
-        .defaultSize(width: 760, height: 560)
+        .defaultSize(width: 820, height: 620)
         .environment(\.locale, AppUILocaleState.shared.current)
+    }
+}
+
+private struct MenuBarStatusGlyph: View {
+    let model: MenuStatusModel
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Image("MenuBarTemplate")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
+            if let badge = model.menuBarBadgeSymbol {
+                Image(systemName: badge)
+                    .font(.system(size: 6, weight: .bold))
+                    .padding(1)
+                    .background(.bar, in: Circle())
+                    .offset(x: 3, y: 2)
+            }
+        }
+        .frame(width: 18, height: 18)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct MenuCommandCenterTestingBridge: View {
+    @Environment(\.openWindow) private var openWindow
+    @State private var didOpen = false
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .onAppear {
+                guard !didOpen,
+                      UITestingMode.includes("--ui-testing-command-center")
+                else { return }
+                didOpen = true
+                openWindow(id: "menu-command-center-testing")
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            .accessibilityHidden(true)
     }
 }
 

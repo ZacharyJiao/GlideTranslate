@@ -11,37 +11,41 @@ struct ModelsSettingsView: View {
     @State private var credentialDisposition = SettingsCredentialDisposition.preserve
 
     var body: some View {
-        Form {
-            Section("models.providers") {
-                ForEach(viewModel.providers) { descriptor in
-                    HStack {
-                        Button {
-                            selectedID = descriptor.id
-                            viewModel.performOwned {
-                                await $0.selectProvider(descriptor.id)
-                            }
-                        } label: {
-                            LabeledContent {
-                                Text(LocalizedStringKey(descriptor.privacyClass.localizationKey))
-                            } label: {
-                                Text(LocalizedStringKey(descriptor.protocolKind.localizationKey))
-                            }
-                        }
-                        if Self.canPrepareConfirmation(for: descriptor) {
-                            Button("models.prepareConfirmation") {
-                                selectedID = descriptor.id
-                                viewModel.performOwned {
-                                    await $0.prepareConfirmation(for: descriptor)
-                                }
-                            }
-                        }
+        HSplitView {
+            VStack(spacing: 0) {
+                List(viewModel.providers, selection: providerSelection) { descriptor in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Label(
+                            LocalizedStringKey(descriptor.protocolKind.localizationKey),
+                            systemImage: descriptor.privacyClass == .unresolvedOrChanged
+                                ? "exclamationmark.circle"
+                                : "checkmark.circle"
+                        )
+                        Text(LocalizedStringKey(descriptor.privacyClass.localizationKey))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .tag(Optional(descriptor.id))
+                }
+                .accessibilityIdentifier("models.providers")
+
+                HStack {
+                    Button {
+                        beginNewProvider()
+                    } label: {
+                        Label("models.new", systemImage: "plus")
+                    }
+                    Spacer()
+                    Button("models.reload") {
+                        viewModel.performOwned { await $0.reloadProviders() }
                     }
                 }
-                Button("models.reload") {
-                    viewModel.performOwned { await $0.reloadProviders() }
-                }
+                .padding(8)
             }
+            .frame(minWidth: 190, idealWidth: 210, maxWidth: 230)
 
+            Form {
+                Section("models.configuration") {
             Picker("models.protocol", selection: $protocolKind) {
                 Text("models.ollama").tag(ProviderProtocolKind.ollamaNative)
                 Text("models.openAICompatible").tag(ProviderProtocolKind.openAICompatible)
@@ -62,9 +66,21 @@ struct ModelsSettingsView: View {
                         .tag(disposition)
                 }
             }
-            Button("models.save") { save() }
+                    Button("models.save") { save() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(GlideVisualTokens.actionEmerald)
+                }
 
             if let selectedID {
+                    Section("models.actions") {
+                if let descriptor = selectedDescriptor,
+                   Self.canPrepareConfirmation(for: descriptor) {
+                    Button("models.prepareConfirmation") {
+                        viewModel.performOwned {
+                            await $0.prepareConfirmation(for: descriptor)
+                        }
+                    }
+                }
                 Button("models.discover") {
                     viewModel.performOwned { await $0.discoverModels(for: selectedID) }
                 }
@@ -79,6 +95,7 @@ struct ModelsSettingsView: View {
                     viewModel.performOwned { await $0.deleteProvider(selectedID) }
                 }
                 .accessibilityHint("models.delete.hint")
+                        .foregroundStyle(.red)
                 Button("models.automaticApplications.load") {
                     viewModel.performOwned {
                         await $0.loadAutomaticApplications(for: selectedID)
@@ -97,13 +114,17 @@ struct ModelsSettingsView: View {
                         )
                     }
                 }
+                    }
             }
 
-            timeoutControls
-                .accessibilityIdentifier("models.timeouts")
+                Section("models.timeouts") {
+                    timeoutControls
+                        .accessibilityIdentifier("models.timeouts")
+                }
 
             if let preview = viewModel.confirmationPreview,
                preview.configurationID == selectedID {
+                    Section("models.confirmDestination") {
                 Text("models.confirmDestination.warning")
                 Text(LocalizedStringKey(preview.protocolKind.localizationKey))
                 Text(LocalizedStringKey(preview.privacyClass.localizationKey))
@@ -111,13 +132,16 @@ struct ModelsSettingsView: View {
                     viewModel.performOwned { await $0.confirmDestination() }
                 }
                 .accessibilityHint("models.confirmDestination.hint")
+                    }
             }
             Color.clear.frame(height: 0)
                 .accessibilityIdentifier("models.confirmDestination")
             Color.clear.frame(height: 0)
                 .accessibilityIdentifier("models.automaticApplications")
+            }
+            .formStyle(.grouped)
+            .frame(minWidth: 360)
         }
-        .formStyle(.grouped)
         .onChange(of: viewModel.selectedProvider) { _, details in
             guard let details else {
                 selectedID = nil
@@ -136,6 +160,30 @@ struct ModelsSettingsView: View {
         for descriptor: SettingsProviderDescriptor
     ) -> Bool {
         descriptor.privacyClass != .localOnDevice
+    }
+
+    private var providerSelection: Binding<ProviderConfigurationID?> {
+        Binding(
+            get: { selectedID },
+            set: { id in
+                selectedID = id
+                guard let id else { return }
+                viewModel.performOwned { await $0.selectProvider(id) }
+            }
+        )
+    }
+
+    private var selectedDescriptor: SettingsProviderDescriptor? {
+        guard let selectedID else { return nil }
+        return viewModel.providers.first { $0.id == selectedID }
+    }
+
+    private func beginNewProvider() {
+        selectedID = nil
+        protocolKind = .ollamaNative
+        endpoint = "http://127.0.0.1:11434"
+        model = ""
+        credentialDisposition = .preserve
     }
 
     private var timeoutControls: some View {

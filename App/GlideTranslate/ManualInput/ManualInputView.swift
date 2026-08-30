@@ -16,12 +16,14 @@ struct ManualInputView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("manual.heading")
-                .font(.title2.weight(.semibold))
+            GlidePageHeader(
+                title: "manual.heading",
+                explanation: "manual.explanation"
+            )
 
             TextEditor(text: $viewModel.text)
                 .font(.body)
-                .frame(minHeight: 160)
+                .frame(minHeight: 190)
                 .overlay {
                     RoundedRectangle(cornerRadius: 6)
                         .stroke(.separator, lineWidth: 1)
@@ -37,32 +39,38 @@ struct ManualInputView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
 
-            HStack(spacing: 12) {
-                languagePicker(
-                    "manual.sourceLanguage",
-                    selection: $viewModel.selectedSourceLanguage,
-                    options: viewModel.sourceOptions
-                )
-                languagePicker(
-                    "manual.targetLanguage",
-                    selection: $viewModel.selectedTargetLanguage,
-                    options: viewModel.targetOptions
-                )
-                Picker("manual.preset", selection: $viewModel.selectedPresetID) {
-                    ForEach(viewModel.presetOptions) { option in
-                        presetName(option)
-                            .tag(Optional(option.id))
-                    }
+            HStack(alignment: .bottom, spacing: 12) {
+                compactControl("manual.sourceLanguage") {
+                    languagePicker(
+                        "manual.sourceLanguage",
+                        selection: $viewModel.selectedSourceLanguage,
+                        options: viewModel.sourceOptions
+                    )
                 }
-            }
-
-            HStack {
-                Picker("manual.provider", selection: $viewModel.selectedProviderID) {
-                    ForEach(viewModel.providerOptions) { option in
-                        providerName(option).tag(Optional(option.id))
-                    }
+                compactControl("manual.targetLanguage") {
+                    languagePicker(
+                        "manual.targetLanguage",
+                        selection: $viewModel.selectedTargetLanguage,
+                        options: viewModel.targetOptions
+                    )
                 }
-                Spacer()
+                compactControl("manual.preset") {
+                    Picker("manual.preset", selection: $viewModel.selectedPresetID) {
+                        ForEach(viewModel.presetOptions) { option in
+                            presetName(option)
+                                .tag(Optional(option.id))
+                        }
+                    }
+                    .labelsHidden()
+                }
+                compactControl("manual.provider") {
+                    Picker("manual.provider", selection: $viewModel.selectedProviderID) {
+                        ForEach(viewModel.providerOptions) { option in
+                            providerName(option).tag(Optional(option.id))
+                        }
+                    }
+                    .labelsHidden()
+                }
                 if let provider = viewModel.selectedProvider {
                     Label(
                         localityKey(provider.locality),
@@ -81,6 +89,8 @@ struct ManualInputView: View {
                 Button("manual.translate") {
                     performPrimaryAction()
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(GlideVisualTokens.actionEmerald)
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(
                     presenter?.requestedPresetID != nil
@@ -90,8 +100,12 @@ struct ManualInputView: View {
                 .accessibilityIdentifier("manual.translate")
             }
         }
-        .padding(20)
-        .frame(minWidth: 480, minHeight: 340)
+        .padding(GlideVisualTokens.pagePadding)
+        .frame(minWidth: 520, minHeight: 380)
+        .background(GlideVisualTokens.canvas)
+        .background {
+            GlideWindowChrome(minimumSize: CGSize(width: 520, height: 380))
+        }
         .onChange(of: presenter?.requestedPresetID, initial: true) { _, requested in
             if let requested { viewModel.selectedPresetID = requested }
         }
@@ -131,6 +145,20 @@ struct ManualInputView: View {
                     .tag(Optional(option.value))
             }
         }
+        .labelsHidden()
+    }
+
+    private func compactControl<Content: View>(
+        _ title: LocalizedStringKey,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func localityKey(_ locality: DestinationPrivacyClass) -> LocalizedStringKey {

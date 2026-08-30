@@ -17,4 +17,5 @@ docs/compatibility.md
 docs/distribution.md
 docs/verification.md
 assets/readme
+assets/brand/app-icon
 script

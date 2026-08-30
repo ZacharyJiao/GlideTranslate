@@ -33,36 +33,16 @@
         }
       }
     },
-    "about.releases.unavailable": {
+    "about.releases": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Release notes are unavailable in this build."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "此构建暂不提供版本说明。"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Releases" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "版本发布" } }
       }
     },
-    "about.source.unavailable": {
+    "about.source": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Source information is unavailable in this build."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "此构建暂不提供源代码信息。"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Source Code" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "源代码" } }
       }
     },
     "about.version": {
@@ -685,6 +665,30 @@
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "请对此应用使用手动翻译。" } }
       }
     },
+    "general.automaticCapture.explanation": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Automatic capture follows the per-application permissions configured in Selection." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "自动捕获会遵循“选区”中配置的逐应用权限。" } }
+      }
+    },
+    "general.section.appearance": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Appearance and launch" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "外观与启动" } }
+      }
+    },
+    "general.section.capture": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Shortcut and capture" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "快捷键与捕获" } }
+      }
+    },
+    "general.section.translation": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Translation defaults" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "翻译默认设置" } }
+      }
+    },
     "general.automaticCapture": {
       "localizations": {
         "en": {
@@ -1005,6 +1009,12 @@
         }
       }
     },
+    "manual.explanation": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Enter text explicitly, choose its route, and translate without Accessibility permission." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "主动输入文本并选择翻译路径，无需辅助功能权限。" } }
+      }
+    },
     "manual.heading": {
       "localizations": {
         "en": {
@@ -1197,6 +1207,12 @@
         }
       }
     },
+    "menu.manualInput": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Manual Input…" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "手动输入…" } }
+      }
+    },
     "menu.pause": {
       "localizations": {
         "en": {
@@ -1227,6 +1243,12 @@
             "value": "提示词"
           }
         }
+      }
+    },
+    "menu.provider": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Provider" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "提供方" } }
       }
     },
     "menu.quit": {
@@ -1403,6 +1425,12 @@
         }
       }
     },
+    "models.actions": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Provider actions" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "提供方操作" } }
+      }
+    },
     "models.automaticApplications.load": {
       "localizations": {
         "en": {
@@ -1417,6 +1445,12 @@
             "value": "载入自动应用"
           }
         }
+      }
+    },
+    "models.configuration": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Configuration" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配置" } }
       }
     },
     "models.confirmDestination": {
@@ -1641,6 +1675,12 @@
             "value": "模型"
           }
         }
+      }
+    },
+    "models.new": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "New Provider" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "新建提供方" } }
       }
     },
     "models.ollama": {
@@ -2111,6 +2151,12 @@
             "value": "使用此模型"
           }
         }
+      }
+    },
+    "onboarding.progress.format": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Step %1$lld of %2$lld" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "第 %1$lld 步，共 %2$lld 步" } }
       }
     },
     "onboarding.privacy.localFirst": {
@@ -3133,6 +3179,18 @@
         }
       }
     },
+    "privacyHistory.search.explanation": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Search encrypted history, then inspect and delete records in this temporary view." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "搜索加密历史记录，并在此临时视图中查看或删除。" } }
+      }
+    },
+    "privacyHistory.selection.empty": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Select a history record" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "选择一条历史记录" } }
+      }
+    },
     "privacyHistory.search": {
       "localizations": {
         "en": {
@@ -3501,6 +3559,18 @@
         }
       }
     },
+    "prompts.editor.explanationText": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Edit a custom preset. Validation remains local until you explicitly save." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "编辑自定义提示词；仅在明确保存后写入，验证过程保持本地。" } }
+      }
+    },
+    "prompts.editor.title": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Prompt Editor" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "提示词编辑器" } }
+      }
+    },
     "prompts.editor.action": {
       "localizations": {
         "en": {
@@ -3645,6 +3715,12 @@
         }
       }
     },
+    "prompts.selection.empty": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Select a prompt" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "选择一个提示词" } }
+      }
+    },
     "prompts.setDefault": {
       "localizations": {
         "en": {
@@ -3785,6 +3861,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "模板过长。"
+          }
+        }
+      }
+    },
+    "result.backToLatest": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to Latest"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回到最新内容"
           }
         }
       }
@@ -4041,6 +4133,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "源文本"
+          }
+        }
+      }
+    },
+    "result.source.collapse": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapse source text"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "收起源文本"
+          }
+        }
+      }
+    },
+    "result.source.expand": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expand source text"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "展开源文本"
           }
         }
       }
@@ -4429,6 +4553,12 @@
         }
       }
     },
+    "settings.about.explanation": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Version, privacy commitments, licenses, and project links." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "版本、隐私承诺、许可证与项目链接。" } }
+      }
+    },
     "settings.about": {
       "localizations": {
         "en": {
@@ -4443,6 +4573,12 @@
             "value": "关于"
           }
         }
+      }
+    },
+    "settings.general.explanation": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Choose app language, translation defaults, shortcut, and capture behavior." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "选择应用语言、翻译默认项、快捷键和捕获行为。" } }
       }
     },
     "settings.general": {
@@ -4461,6 +4597,12 @@
         }
       }
     },
+    "settings.models.explanation": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Configure local and remote providers, then verify each destination explicitly." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配置本地或远程提供方，并明确验证每个目标位置。" } }
+      }
+    },
     "settings.models": {
       "localizations": {
         "en": {
@@ -4475,6 +4617,12 @@
             "value": "模型"
           }
         }
+      }
+    },
+    "settings.privacyHistory.explanation": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Control encrypted history, exclusions, diagnostics, and destructive reset." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "管理加密历史、排除规则、诊断与破坏性重置。" } }
       }
     },
     "settings.privacyHistory": {
@@ -4493,6 +4641,12 @@
         }
       }
     },
+    "settings.prompts.explanation": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Browse built-in prompts and manage custom presets with bundled previews." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "浏览内置提示词，并通过内置示例管理自定义提示词。" } }
+      }
+    },
     "settings.prompts": {
       "localizations": {
         "en": {
@@ -4507,6 +4661,12 @@
             "value": "提示词"
           }
         }
+      }
+    },
+    "settings.selection.explanation": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Manage Accessibility status, allowed applications, triggers, and clipboard fallback." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "管理辅助功能状态、允许的应用、触发方式和剪贴板回退。" } }
       }
     },
     "settings.selection": {

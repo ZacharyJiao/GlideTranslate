@@ -132,7 +132,7 @@ mixed_packager="$fixture_root/mixed-packager"
   "$packager" > "$mixed_packager"
 /bin/chmod 755 "$mixed_packager"
 
-accepted_archive="$(make_archive accepted 0.1.0)"
+accepted_archive="$(make_archive accepted 0.2.0)"
 record_stage SPCTL_CONTRADICTORY_DEVELOPER_ID
 assert_closed_failure contradictory-spctl \
   RELEASE_GATEKEEPER_CLASSIFICATION_MISMATCH \
@@ -245,7 +245,7 @@ fi
 test "$(/bin/cat "$fixture_root/accepted.stdout")" = ADHOC_RELEASE_PACKAGE_PASSED
 test ! -s "$fixture_root/accepted.stderr"
 
-artifact_name=GlideTranslate-0.1.0-macos-arm64.zip
+artifact_name=GlideTranslate-0.2.0-macos-arm64.zip
 checksum_name="$artifact_name.sha256"
 test -f "$accepted_output/$artifact_name"
 test -f "$accepted_output/$checksum_name"
@@ -262,7 +262,7 @@ extracted="$fixture_root/extracted"
 app="$extracted/GlideTranslate.app"
 test -d "$app"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
-  "$app/Contents/Info.plist")" = 0.1.0
+  "$app/Contents/Info.plist")" = 0.2.0
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' \
   "$app/Contents/Info.plist")" = 1
 test "$(/usr/bin/lipo -archs "$app/Contents/MacOS/GlideTranslate")" = arm64
@@ -306,14 +306,14 @@ record_stage WRONG_VERSION
 assert_closed_failure wrong-version RELEASE_VERSION_MISMATCH \
   "$packager" "$wrong_version" "$fixture_root/wrong-version-output"
 
-wrong_build="$(make_archive wrong-build 0.1.0)"
+wrong_build="$(make_archive wrong-build 0.2.0)"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 2' \
   "$wrong_build/Products/Applications/GlideTranslate.app/Contents/Info.plist"
 record_stage WRONG_BUILD
 assert_closed_failure wrong-build RELEASE_BUILD_MISMATCH \
   "$packager" "$wrong_build" "$fixture_root/wrong-build-output"
 
-wrong_architecture="$(make_archive wrong-architecture 0.1.0)"
+wrong_architecture="$(make_archive wrong-architecture 0.2.0)"
 /usr/bin/clang -arch x86_64 -x c \
   -o "$wrong_architecture/Products/Applications/GlideTranslate.app/Contents/MacOS/GlideTranslate" - <<'EOF'
 int main(void) { return 0; }
@@ -329,7 +329,7 @@ record_stage MISSING_LAYOUT
 assert_closed_failure missing-layout RELEASE_ARCHIVE_LAYOUT_INVALID \
   "$packager" "$missing_layout" "$fixture_root/missing-layout-output"
 
-extra_payload="$(make_archive extra-payload 0.1.0)"
+extra_payload="$(make_archive extra-payload 0.2.0)"
 /bin/mkdir -p "$extra_payload/Products/Applications/Other.app/Contents"
 printf '%s\n' unrelated \
   > "$extra_payload/Products/Applications/Other.app/Contents/Info.plist"
@@ -548,7 +548,7 @@ test ! -e "$fixture_root/unzip-output"
 checksum_tool="$fixture_root/failing-checksum"
 printf '%s\n' '#!/usr/bin/env bash' \
   'last="${!#}"' \
-  'if [ "$last" = GlideTranslate-0.1.0-macos-arm64.zip ]; then exit 9; fi' \
+  'if [ "$last" = GlideTranslate-0.2.0-macos-arm64.zip ]; then exit 9; fi' \
   'exec /usr/bin/shasum "$@"' > "$checksum_tool"
 /bin/chmod 755 "$checksum_tool"
 checksum_packager="$fixture_root/checksum-packager"

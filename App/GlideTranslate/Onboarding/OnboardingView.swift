@@ -11,28 +11,37 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Group {
-                switch coordinator.step {
-                case .privacyModel: privacyStep
-                case .localOllama: ollamaStep
-                case .shortcut: shortcutStep
-                case .accessibility: accessibilityStep
-                case .complete: completeStep
+            Text(
+                String(
+                    format: String(localized: "onboarding.progress.format"),
+                    stepIndex + 1,
+                    OnboardingStep.allCases.count
+                )
+            )
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("onboarding-step-indicator")
+
+            ScrollView {
+                Group {
+                    switch coordinator.step {
+                    case .privacyModel: privacyStep
+                    case .localOllama: ollamaStep
+                    case .shortcut: shortcutStep
+                    case .accessibility: accessibilityStep
+                    case .complete: completeStep
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             if let error = coordinator.safeError {
                 let localization = error.localization
-                VStack(alignment: .leading, spacing: 4) {
-                    Label(
-                        LocalizedStringKey(localization.messageKey),
-                        systemImage: "exclamationmark.triangle"
-                    )
-                    Text(LocalizedStringKey(localization.nextActionKey))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                GlideStatusSurface(
+                    message: LocalizedStringKey(localization.messageKey),
+                    nextAction: LocalizedStringKey(localization.nextActionKey)
+                )
                 .accessibilityIdentifier("onboarding-safe-error")
             }
 
@@ -47,13 +56,19 @@ struct OnboardingView: View {
                                 await $0.continueCurrentStep()
                             }
                         }
+                        .buttonStyle(.borderedProminent)
+                        .tint(GlideVisualTokens.actionEmerald)
                         .keyboardShortcut(.defaultAction)
                     }
                 }
             }
         }
         .padding(28)
-        .frame(minWidth: 560, minHeight: 420)
+        .frame(minWidth: 600, minHeight: 480)
+        .background(GlideVisualTokens.canvas)
+        .background {
+            GlideWindowChrome(minimumSize: CGSize(width: 600, height: 480))
+        }
     }
 
     private var privacyStep: some View {
@@ -144,7 +159,13 @@ struct OnboardingView: View {
             Button("onboarding.finish") {
                 coordinator.performOwned { await $0.finish() }
             }
+            .buttonStyle(.borderedProminent)
+            .tint(GlideVisualTokens.actionEmerald)
             .keyboardShortcut(.defaultAction)
         }
+    }
+
+    private var stepIndex: Int {
+        OnboardingStep.allCases.firstIndex(of: coordinator.step) ?? 0
     }
 }

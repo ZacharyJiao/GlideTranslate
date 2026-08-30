@@ -269,7 +269,12 @@ struct PrivacyHistorySettingsView: View {
         .formStyle(.grouped)
         .sheet(isPresented: $historyPresented) {
             HistoryView(viewModel: viewModel)
-                .frame(minWidth: 680, minHeight: 520)
+                .frame(
+                    minWidth: 680,
+                    idealWidth: 760,
+                    minHeight: 520,
+                    idealHeight: 560
+                )
         }
         .confirmationDialog(
             "privacyHistory.reset.confirm.title",

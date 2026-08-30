@@ -21,6 +21,7 @@ enum MenuSurfaceItem: Equatable, Sendable {
     case preset(name: String)
     case providerLocality(textKey: String, enabled: Bool)
     case separator
+    case manualInput
     case settings
     case quit
 }
@@ -81,6 +82,20 @@ struct MenuStatusModel: Equatable {
         recoveryTextKeyName.map { LocalizedStringKey($0) }
     }
 
+    var menuBarBadgeSymbol: String? {
+        switch state {
+        case .running, .resetting:
+            nil
+        case .paused:
+            "pause.fill"
+        case .foregroundAppDisabled:
+            "slash"
+        case .permissionMissing, .providerUnavailable, .shortcutUnavailable,
+             .historyUnavailable, .captureUnavailable:
+            "exclamationmark"
+        }
+    }
+
     var surfaceItems: [MenuSurfaceItem] {
         var items: [MenuSurfaceItem] = [
             .state(
@@ -102,6 +117,7 @@ struct MenuStatusModel: Equatable {
             .preset(name: presetName),
             .providerLocality(textKey: localityTextKeyName, enabled: false),
             .separator,
+            .manualInput,
             .settings,
             .quit,
         ])
