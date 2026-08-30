@@ -46,6 +46,23 @@ final class MenuStatusModelTests: XCTestCase {
         XCTAssertEqual(Set(symbols).count, 8)
     }
 
+    func testMenuBarBadgesPreserveOneBaseGlyphAndExposeTypedState() {
+        let expected: [(CaptureMenuState, String?)] = [
+            (.running, nil),
+            (.paused, "pause.fill"),
+            (.permissionMissing, "exclamationmark"),
+            (.providerUnavailable, "exclamationmark"),
+            (.foregroundAppDisabled, "slash"),
+            (.shortcutUnavailable, "exclamationmark"),
+            (.historyUnavailable, "exclamationmark"),
+            (.captureUnavailable, "exclamationmark"),
+            (.resetting, nil),
+        ]
+        for (state, badge) in expected {
+            XCTAssertEqual(menuModel(state: state).menuBarBadgeSymbol, badge)
+        }
+    }
+
     func testMenuSurfaceHasExactOrderedItemsAndNoClutter() {
         let running = menuModel(state: .running)
         XCTAssertEqual(running.surfaceItems, [
@@ -55,6 +72,7 @@ final class MenuStatusModelTests: XCTestCase {
             .preset(name: "Accurate Translation"),
             .providerLocality(textKey: "locality.local", enabled: false),
             .separator,
+            .manualInput,
             .settings,
             .quit,
         ])

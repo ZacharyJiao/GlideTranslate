@@ -88,9 +88,9 @@ final class PanelPlacementResolverTests: XCTestCase {
                 pointer: CGPoint(x: 900, y: 700),
                 displays: [primary],
                 panelSize: PanelPlacementResolver.defaultPanelSize,
-                expectedFrame: CGRect(x: 580, y: 448, width: 420, height: 240),
+                expectedFrame: CGRect(x: 468, y: 448, width: 420, height: 240),
                 expectedDisplay: 0,
-                expectedReason: .clamped,
+                expectedReason: .pointer,
                 nonoverlapPossible: false
             ),
             .init(

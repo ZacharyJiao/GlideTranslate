@@ -4,11 +4,16 @@ import SwiftUI
 struct HistoryView: View {
     @Bindable var viewModel: SettingsViewModel
     @State private var query = ""
+    @State private var selectedRecordID: TranslationRecordID?
     @State private var deleteCandidate: SettingsHistoryRecord?
     @State private var clearConfirmationPresented = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            GlidePageHeader(
+                title: "privacyHistory.search",
+                explanation: "privacyHistory.search.explanation"
+            )
             TextField("privacyHistory.search.query", text: $query)
                 .onSubmit {
                     viewModel.performOwned { await $0.searchHistory(query) }
@@ -34,23 +39,49 @@ struct HistoryView: View {
             case .deleteAndRestartCompleted:
                 Text("privacyHistory.unrecoverable.restartRequired")
             case .idle, .loaded:
-                List(viewModel.historyRecords) { record in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(record.timestamp, style: .date)
-                        if let presetDisplayName = record.presetDisplayName {
-                            Text(verbatim: presetDisplayName)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text(LocalizedStringKey(record.presetID.safeDisplayLocalizationKey))
-                                .foregroundStyle(.secondary)
+                HSplitView {
+                    List(viewModel.historyRecords, selection: $selectedRecordID) { record in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(record.timestamp, style: .date)
+                            if let presetDisplayName = record.presetDisplayName {
+                                Text(verbatim: presetDisplayName)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            } else {
+                                Text(LocalizedStringKey(record.presetID.safeDisplayLocalizationKey))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
                         }
-                        Text(record.sourcePreview)
-                        Text(record.resultPreview).foregroundStyle(.secondary)
-                        Button("privacyHistory.delete", role: .destructive) {
-                            deleteCandidate = record
+                        .tag(Optional(record.id))
+                    }
+                    .frame(minWidth: 220, idealWidth: 250)
+
+                    if let selectedRecord {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(selectedRecord.timestamp, format: .dateTime)
+                                    .font(.headline)
+                                Text(selectedRecord.sourcePreview)
+                                Divider()
+                                Text(selectedRecord.resultPreview)
+                                    .foregroundStyle(.secondary)
+                                Button("privacyHistory.delete", role: .destructive) {
+                                    deleteCandidate = selectedRecord
+                                }
+                                .accessibilityHint("privacyHistory.delete.hint")
+                                .disabled(viewModel.historyMutationInFlight)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
                         }
-                        .accessibilityHint("privacyHistory.delete.hint")
-                        .disabled(viewModel.historyMutationInFlight)
+                    } else {
+                        ContentUnavailableView(
+                            "privacyHistory.selection.empty",
+                            systemImage: "clock"
+                        )
                     }
                 }
             }
@@ -72,6 +103,8 @@ struct HistoryView: View {
             }
         }
         .padding()
+        .frame(minWidth: 680, minHeight: 520)
+        .background(GlideVisualTokens.canvas)
         .task { await viewModel.performOwnedAndWait { await $0.openHistory() } }
         .onDisappear { viewModel.clearHistoryViewCache() }
         .confirmationDialog(
@@ -116,5 +149,10 @@ struct HistoryView: View {
         id.rawValue.hasPrefix("custom-")
             ? "privacyHistory.delete.presetCategory.custom"
             : "privacyHistory.delete.presetCategory.builtIn"
+    }
+
+    private var selectedRecord: SettingsHistoryRecord? {
+        guard let selectedRecordID else { return nil }
+        return viewModel.historyRecords.first { $0.id == selectedRecordID }
     }
 }

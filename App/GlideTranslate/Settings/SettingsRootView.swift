@@ -31,6 +31,17 @@ enum SettingsSection: String, CaseIterable, Identifiable, Sendable {
         case .about: "info.circle"
         }
     }
+
+    var explanationKey: LocalizedStringKey {
+        switch self {
+        case .general: "settings.general.explanation"
+        case .selection: "settings.selection.explanation"
+        case .models: "settings.models.explanation"
+        case .prompts: "settings.prompts.explanation"
+        case .privacyHistory: "settings.privacyHistory.explanation"
+        case .about: "settings.about.explanation"
+        }
+    }
 }
 
 enum SettingsInventory {
@@ -73,30 +84,47 @@ struct SettingsRootView: View {
                 Label(section.labelKey, systemImage: section.symbol)
                     .tag(section)
             }
-            .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 220)
+            .navigationSplitViewColumnWidth(min: 188, ideal: 200, max: 216)
         } detail: {
             VStack(spacing: 0) {
                 if let error = viewModel.safeError {
                     let localization = error.localization
-                    VStack(alignment: .leading, spacing: 4) {
-                        Label(
-                            LocalizedStringKey(localization.messageKey),
-                            systemImage: "exclamationmark.triangle"
-                        )
-                        Text(LocalizedStringKey(localization.nextActionKey))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(.orange.opacity(0.12))
+                    GlideStatusSurface(
+                        message: LocalizedStringKey(localization.messageKey),
+                        nextAction: LocalizedStringKey(localization.nextActionKey)
+                    )
+                    .padding([.horizontal, .top], GlideVisualTokens.pagePadding)
                     .accessibilityIdentifier("settings-safe-error")
                 }
-                detail
+                VStack(alignment: .leading, spacing: 16) {
+                    GlidePageHeader(
+                        title: selectedSection.labelKey,
+                        explanation: selectedSection.explanationKey
+                    )
+                    detail
+                        .id(selectedSection)
+                        .transition(.opacity)
+                }
+                .frame(
+                    maxWidth: GlideVisualTokens.readableDetailWidth,
+                    maxHeight: .infinity,
+                    alignment: .topLeading
+                )
+                .padding([.horizontal, .top], GlideVisualTokens.pagePadding)
+                .padding(.bottom, 12)
+                .animation(
+                    .easeOut(duration: GlideMotionTokens.contentCrossfadeDuration),
+                    value: selectedSection
+                )
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(GlideVisualTokens.canvas)
         }
         .id(viewModel.snapshot.uiLanguage)
         .frame(minWidth: 760, minHeight: 560)
+        .background {
+            GlideWindowChrome(minimumSize: CGSize(width: 760, height: 560))
+        }
         .environment(\.locale, viewModel.uiLocale)
     }
 

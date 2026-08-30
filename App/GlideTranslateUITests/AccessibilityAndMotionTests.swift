@@ -18,7 +18,7 @@ final class AccessibilityAndMotionTests: XCTestCase {
         XCTAssertEqual(source.value as? String, "focus-fixture-source")
         XCTAssertTrue(app.buttons["result-copy"].exists)
         XCTAssertTrue(app.buttons["result-retry"].exists)
-        XCTAssertTrue(app.buttons["result-change-preset"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["result-change-preset"].exists)
         XCTAssertTrue(app.buttons["result-pin"].exists)
         XCTAssertTrue(app.buttons["result-close"].exists)
     }

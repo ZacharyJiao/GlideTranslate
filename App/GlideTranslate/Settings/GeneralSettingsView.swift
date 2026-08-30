@@ -18,59 +18,70 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
-            Picker("general.uiLanguage", selection: uiLanguage) {
-                Text("language.english").tag(ApplicationLanguage.english)
-                Text("language.simplifiedChinese").tag(ApplicationLanguage.simplifiedChinese)
-            }
-            .accessibilityIdentifier("general.uiLanguage")
+            Section("general.section.appearance") {
+                Picker("general.uiLanguage", selection: uiLanguage) {
+                    Text("language.english").tag(ApplicationLanguage.english)
+                    Text("language.simplifiedChinese").tag(ApplicationLanguage.simplifiedChinese)
+                }
+                .accessibilityIdentifier("general.uiLanguage")
 
-            Picker("general.targetLanguage", selection: targetLanguage) {
-                Text("language.automatic").tag(LanguageChoice.automatic)
-                Text("language.english").tag(LanguageChoice.identified("en"))
-                Text("language.simplifiedChinese").tag(LanguageChoice.identified("zh-Hans"))
+                Toggle("general.launchAtLogin", isOn: launchAtLogin)
+                    .accessibilityIdentifier("general.launchAtLogin")
             }
-            .accessibilityIdentifier("general.targetLanguage")
 
-            LabeledContent("general.shortcut") {
-                HStack {
-                    ShortcutRecorderField(descriptor: shortcutCandidate)
-                        .frame(width: 120)
-                    Button("general.shortcut.apply") {
-                        let descriptor = viewModel.shortcutCandidate
-                        viewModel.performOwned { await $0.setShortcut(descriptor) }
+            Section("general.section.translation") {
+                Picker("general.targetLanguage", selection: targetLanguage) {
+                    Text("language.automatic").tag(LanguageChoice.automatic)
+                    Text("language.english").tag(LanguageChoice.identified("en"))
+                    Text("language.simplifiedChinese").tag(LanguageChoice.identified("zh-Hans"))
+                }
+                .accessibilityIdentifier("general.targetLanguage")
+
+                Picker("general.defaultPreset", selection: defaultPreset) {
+                    ForEach(defaultPresetOptions, id: \.rawValue) { id in
+                        defaultPresetName(id).tag(id)
                     }
                 }
-            }
-            .accessibilityIdentifier("general.shortcut")
-            if shortcutPresentation != .ready {
-                Text(shortcutPresentationKey)
-            }
-
-            Toggle("general.launchAtLogin", isOn: launchAtLogin)
-                .accessibilityIdentifier("general.launchAtLogin")
-
-            Picker("general.defaultPreset", selection: defaultPreset) {
-                ForEach(defaultPresetOptions, id: \.rawValue) { id in
-                    defaultPresetName(id).tag(id)
-                }
-            }
                 .accessibilityIdentifier("general.defaultPreset")
 
-            Picker("general.defaultProvider", selection: defaultProvider) {
-                Text("general.defaultProvider.none").tag(ProviderConfigurationID?.none)
-                if let current = viewModel.snapshot.defaultProviderID,
-                   !viewModel.providers.contains(where: { $0.id == current }) {
-                    Text("general.defaultProvider.unavailable").tag(Optional(current))
+                Picker("general.defaultProvider", selection: defaultProvider) {
+                    Text("general.defaultProvider.none").tag(ProviderConfigurationID?.none)
+                    if let current = viewModel.snapshot.defaultProviderID,
+                       !viewModel.providers.contains(where: { $0.id == current }) {
+                        Text("general.defaultProvider.unavailable").tag(Optional(current))
+                    }
+                    ForEach(viewModel.providers) { provider in
+                        Text(LocalizedStringKey(provider.protocolKind.localizationKey))
+                            .tag(Optional(provider.id))
+                    }
                 }
-                ForEach(viewModel.providers) { provider in
-                    Text(LocalizedStringKey(provider.protocolKind.localizationKey))
-                        .tag(Optional(provider.id))
-                }
+                .accessibilityIdentifier("general.defaultProvider")
             }
-            .accessibilityIdentifier("general.defaultProvider")
 
-            Toggle("general.automaticCapture", isOn: automaticCapture)
-                .accessibilityIdentifier("general.automaticCapture")
+            Section("general.section.capture") {
+                LabeledContent("general.shortcut") {
+                    HStack {
+                        ShortcutRecorderField(descriptor: shortcutCandidate)
+                            .frame(width: 120)
+                        Button("general.shortcut.apply") {
+                            let descriptor = viewModel.shortcutCandidate
+                            viewModel.performOwned { await $0.setShortcut(descriptor) }
+                        }
+                    }
+                }
+                .accessibilityIdentifier("general.shortcut")
+                if shortcutPresentation != .ready {
+                    Text(shortcutPresentationKey)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Toggle("general.automaticCapture", isOn: automaticCapture)
+                    .accessibilityIdentifier("general.automaticCapture")
+                Text("general.automaticCapture.explanation")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
     }

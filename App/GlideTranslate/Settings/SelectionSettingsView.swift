@@ -16,9 +16,13 @@ struct SelectionSettingsView: View {
     var body: some View {
         Form {
             Section("selection.accessibility") {
-                Text(LocalizedStringKey(
-                    "selection.accessibility.status.\(viewModel.accessibilityStatus.rawValue)"
-                ))
+                GlideStatusSurface(
+                    message: LocalizedStringKey(
+                        "selection.accessibility.status.\(viewModel.accessibilityStatus.rawValue)"
+                    ),
+                    nextAction: nil,
+                    systemImage: accessibilityStatusSymbol
+                )
                 HStack {
                     Button("selection.accessibility.refresh") {
                         viewModel.refreshAccessibilityStatus()
@@ -128,6 +132,14 @@ struct SelectionSettingsView: View {
                 viewModel.performOwned { await $0.setMouseSelectionEnabled(value) }
             }
         )
+    }
+
+    private var accessibilityStatusSymbol: String {
+        switch viewModel.accessibilityStatus {
+        case .granted: "checkmark.circle"
+        case .denied: "exclamationmark.triangle"
+        case .unknown: "questionmark.circle"
+        }
     }
 
     private var keyboardEnabled: Binding<Bool> {

@@ -177,11 +177,13 @@ final class ShortcutRoutingTests: XCTestCase {
         state.menuActions.translateSelectedText()
         state.menuActions.setAutomaticCapturePaused(true)
         state.menuActions.selectPreset(PresetID(rawValue: "polish-expression"))
+        state.menuActions.openManualInput()
         state.menuActions.openSettings()
         for _ in 0..<20 where coordinator.callCount < 3 { await Task.yield() }
         XCTAssertEqual(coordinator.translateCount, 1)
         XCTAssertEqual(coordinator.pauseValues, [true])
         XCTAssertEqual(coordinator.presetIDs, [PresetID(rawValue: "polish-expression")])
+        XCTAssertEqual(presenter.requestCount, 1)
         XCTAssertEqual(settingsPresenter.systemOpenRequestCount, 1)
 
         state.manualInputViewModel.text = "manual"

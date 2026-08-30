@@ -53,6 +53,20 @@ final class LocalizationCompletenessTests: XCTestCase {
         XCTAssertEqual(PanelMotionPolicy.standardDuration, 0.16)
     }
 
+    func testResultPanelStateLabelsAreBilingualAndInventoried() throws {
+        let catalog = try ProductStringCatalog.load()
+        let keys = [
+            "result.backToLatest",
+            "result.source.expand",
+            "result.source.collapse",
+        ]
+        XCTAssertTrue(Set(keys).isSubset(of: Set(LocalizationInventory.dynamicKeys)))
+        for key in keys {
+            XCTAssertFalse(try XCTUnwrap(catalog.translation(key, locale: "en")).isEmpty)
+            XCTAssertFalse(try XCTUnwrap(catalog.translation(key, locale: "zh-Hans")).isEmpty)
+        }
+    }
+
     func testEverySafeFailureHasCatalogedMessageAndNextAction() throws {
         let catalog = try ProductStringCatalog.load()
         let presentations = SettingsSafeError.allCases.map(\.localization)

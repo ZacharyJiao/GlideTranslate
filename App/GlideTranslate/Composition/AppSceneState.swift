@@ -71,6 +71,7 @@ final class AppSceneState {
 
     var menuActions: MenuBarActions {
         let coordinator = coordinator
+        let manualPresenter = manualPresenter
         let settingsPresenter = settingsPresenter
         return MenuBarActions(
             translateSelectedText: {
@@ -82,6 +83,7 @@ final class AppSceneState {
             selectPreset: { presetID in
                 Task { await coordinator.selectDefaultPreset(presetID) }
             },
+            openManualInput: { manualPresenter.open() },
             openSettings: { settingsPresenter.openSystemSettings() }
         )
     }

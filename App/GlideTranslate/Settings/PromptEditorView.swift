@@ -6,7 +6,12 @@ struct PromptEditorView: View {
     @Binding var isPresented: Bool
 
     var body: some View {
-        Form {
+        VStack(alignment: .leading, spacing: 16) {
+            GlidePageHeader(
+                title: "prompts.editor.title",
+                explanation: "prompts.editor.explanationText"
+            )
+            Form {
             if viewModel.promptDraft != nil {
                 TextField("prompts.editor.name", text: stringBinding(\.name))
                 TextField("prompts.editor.explanation", text: stringBinding(\.explanation))
@@ -35,11 +40,17 @@ struct PromptEditorView: View {
                             if model.promptDraft == nil { isPresented = false }
                         }
                     }
+                    .buttonStyle(.borderedProminent)
+                    .tint(GlideVisualTokens.actionEmerald)
                     .disabled(!viewModel.canSavePromptDraft)
                 }
             }
+            }
+            .formStyle(.grouped)
         }
-        .formStyle(.grouped)
+        .padding(GlideVisualTokens.pagePadding)
+        .frame(minWidth: 560, minHeight: 500)
+        .background(GlideVisualTokens.canvas)
     }
 
     private func stringBinding(

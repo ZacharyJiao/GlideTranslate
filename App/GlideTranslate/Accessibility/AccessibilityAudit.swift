@@ -40,7 +40,9 @@ enum AccessibilityAudit {
 }
 
 enum PanelMotionPolicy {
-    static let standardDuration = 0.16
+    static let standardDuration = GlideMotionTokens.surfaceDuration
+    static let resizeDuration = GlideMotionTokens.resizeDuration
+    static let contentCrossfadeDuration = GlideMotionTokens.contentCrossfadeDuration
 
     static func animation(reduceMotion: Bool) -> Animation? {
         reduceMotion ? nil : .easeOut(duration: standardDuration)
@@ -49,7 +51,30 @@ enum PanelMotionPolicy {
     static func transition(reduceMotion: Bool) -> AnyTransition {
         reduceMotion
             ? .identity
-            : .opacity.combined(with: .scale(scale: 0.98, anchor: .center))
+            : .opacity
+    }
+
+    static func shouldApplyImmediately(reduceMotion: Bool) -> Bool {
+        reduceMotion
+    }
+
+    static func entryOffset(
+        side: PanelAnchorSide,
+        pointerCorner: PanelPointerCorner?
+    ) -> CGSize {
+        switch side {
+        case .below:
+            CGSize(width: 0, height: -8)
+        case .above:
+            CGSize(width: 0, height: 8)
+        case .pointer:
+            switch pointerCorner ?? .topLeft {
+            case .topLeft: CGSize(width: 8, height: -8)
+            case .topRight: CGSize(width: -8, height: -8)
+            case .bottomLeft: CGSize(width: 8, height: 8)
+            case .bottomRight: CGSize(width: -8, height: 8)
+            }
+        }
     }
 }
 
@@ -57,6 +82,7 @@ enum LocalizationInventory {
     // Dynamic LocalizedStringKey families are enumerated here so the checker
     // can review them even though source extraction cannot resolve interpolation.
     static let dynamicKeys: [String] = [
+        "about.releases", "about.source",
         "app.startup.failure.captureUnavailable",
         "app.startup.failure.corruptPreferences",
         "app.startup.failure.historyMaintenanceFailure",
@@ -176,11 +202,19 @@ enum LocalizationInventory {
         "prompts.validation.immutableBuiltIn", "prompts.validation.invalidCustomIdentifier",
         "prompts.validation.invalidTemplate", "prompts.validation.nameTooLong",
         "prompts.validation.presetNotFound", "prompts.validation.templateTooLong",
+        "manual.explanation", "manual.heading", "models.providers",
+        "privacyHistory.search.explanation",
+        "prompts.editor.explanationText", "prompts.editor.title",
         "result.phase.completed", "result.phase.connecting", "result.phase.failed",
         "result.phase.preparing", "result.phase.streaming", "result.phase.waiting",
+        "result.backToLatest", "result.close", "result.pin",
+        "result.source.collapse", "result.source.expand",
         "selection.accessibility.status.denied",
         "selection.accessibility.status.granted",
         "selection.accessibility.status.unknown",
+        "settings.about.explanation", "settings.general.explanation",
+        "settings.models.explanation", "settings.privacyHistory.explanation",
+        "settings.prompts.explanation", "settings.selection.explanation",
         "settings.about", "settings.general", "settings.models",
         "settings.privacyHistory", "settings.prompts", "settings.selection",
         "shortcut.conflict.nextAction", "shortcut.unavailable.nextAction",

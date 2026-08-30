@@ -16,6 +16,10 @@ final class AppSkeletonTests: XCTestCase {
             rawInfo["LSMinimumSystemVersion"] as? String,
             "14.0"
         )
+        XCTAssertEqual(
+            rawInfo["CFBundleShortVersionString"] as? String,
+            "0.2.0"
+        )
         let resources = try XCTUnwrap(bundle.resourceURL)
         let chineseInfo = try XCTUnwrap(
             NSDictionary(
