@@ -33,6 +33,8 @@ EOF
     -c 'Add :LSMinimumSystemVersion string 14.0' -c 'Add :LSUIElement bool true' \
     "$app/Contents/Info.plist" >/dev/null
   printf '%s\n' 'safe localized resource' > "$app/Contents/Resources/en.lproj/Localizable.strings"
+  printf 'icns\000\000\000\010' > "$app/Contents/Resources/AppIcon.icns"
+  printf 'BOMStore' > "$app/Contents/Resources/Assets.car"
   printf '%s\n' 'safe archive metadata' > "$archive/Info.plist"
   printf '%s\n' "$archive"
 }
