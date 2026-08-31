@@ -119,7 +119,8 @@ protocol ResultPanelPresenting: AnyObject {
         actions: ResultPanelActions
     )
     func updateTemporary(_ presentation: TranslationPresentation)
-    func dismissTemporary()
+    @discardableResult
+    func dismissTemporary() -> Bool
     func pinTemporary()
     func dismissPinned()
 }
@@ -400,8 +401,11 @@ final class ResultPanelController: ResultPanelPresenting {
         resizePanelIfNeeded(panel, presentation: panel.presentation ?? presentation)
     }
 
-    func dismissTemporary() {
+    @discardableResult
+    func dismissTemporary() -> Bool {
+        let hadTemporary = temporary != nil
         rawDismissTemporary()
+        return hadTemporary
     }
 
     private func rawDismissTemporary() {

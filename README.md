@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/readme/hero-en.svg" width="100%" alt="Glide Translate — translate selected text or typed text on macOS">
+  <img src="./assets/readme/hero-en.svg" width="100%" alt="Glide Translate — privacy-focused macOS menu-bar translator for selected text and local Ollama">
 </p>
 
 <p align="center">
@@ -7,26 +7,27 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-v0.2.0-00a850" alt="Release v0.2.0"></a>
+  <a href="https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.1"><img src="https://img.shields.io/badge/release-v0.2.1-00a850" alt="Release v0.2.1"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-12201b" alt="macOS 14 or later">
   <img src="https://img.shields.io/badge/Apple%20Silicon-verified-12201b" alt="Verified on Apple silicon">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-d9a441" alt="MIT License"></a>
 </p>
 
-Glide Translate (轻译) is a menu-bar translation app for macOS 14 and later. It translates selected text or text entered manually, using a local Ollama model by default or an OpenAI-compatible service that you configure.
+Glide Translate (轻译) is an open-source, privacy-focused macOS menu-bar translator for selected text and manual input. It runs on macOS 14 or later and works with local Ollama models by default or an OpenAI-compatible service that you configure.
 
-This README documents **v0.2.0**.
+This README documents **v0.2.1**.
 
 Glide Translate uses Ollama on your Mac by default. If you choose a service on your local network or in the cloud, the app shows where the text will be sent and asks before sending it there.
 
 > [!IMPORTANT]
-> The downloadable `v0.2.0` build is an Apple-silicon prerelease. It is ad hoc signed for bundle-integrity checks, but it is not Developer ID signed or notarized. Read [Install the prerelease](#install-the-prerelease) before opening it.
+> The downloadable `v0.2.1` build is an Apple-silicon prerelease. It is ad hoc signed for bundle-integrity checks, but it is not Developer ID signed or notarized. Read [Install the prerelease](#install-the-prerelease) before opening it.
 
-## The v0.2.0 experience
+## The v0.2.1 experience
 
-v0.2.0 makes the main translation flow easier to use:
+v0.2.1 keeps the v0.2.0 experience upgrade and tightens the everyday flow:
 
 - **A result panel that fits the translation.** Short translations stay compact. Longer translations get more reading space and can scroll without hiding Copy, Retry, Change Preset, Pin, or Close. If you scroll up, **Back to Latest** returns to the newest text.
+- **Temporary panels dismiss reliably.** Arrow and Delete selection events dismiss a temporary result panel after the selection clears, while pinned panels remain available.
 - **Common actions in the menu bar.** See whether translation is ready or paused, choose a preset, translate selected text, open manual translation, or go to Settings.
 - **Consistent app windows.** Manual Translation, onboarding, Settings, prompt editing, and history now use the same layout and keyboard behavior.
 - **A consistent app icon.** The app icon, Dock, Finder, and menu-bar icon all use the same logo and colors.
@@ -57,22 +58,18 @@ Automatic capture works only after you turn it on, allow the source app, and ena
 
 ## Install the prerelease
 
-The [v0.2.0 prerelease](https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.0) provides an Apple-silicon build for macOS 14 or later.
+The [v0.2.1 prerelease](https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.1) provides one Apple-silicon DMG for macOS 14 or later.
 
-1. Download both `GlideTranslate-0.2.0-macos-arm64.zip` and `GlideTranslate-0.2.0-macos-arm64.zip.sha256` from the release page.
-2. Put both files in the same directory and verify the ZIP:
+1. Download `GlideTranslate-0.2.1-macos-arm64.dmg` from the release page.
+2. Open the DMG, then drag `GlideTranslate.app` to **Applications**.
+3. Eject the DMG from Finder.
+4. Try to open the installed app once. Because this prerelease is unidentified and unnotarized, macOS may block it.
+5. If macOS blocks it, open **System Settings → Privacy & Security**, find the Glide Translate message in the Security section, click **Open Anyway**, and confirm **Open**.
+6. If Finder offers Control-click → **Open**, you may use that as an alternate first-launch path; otherwise use **Open Anyway** above.
 
-   ```bash
-   /usr/bin/shasum -a 256 -c GlideTranslate-0.2.0-macos-arm64.zip.sha256
-   ```
+Do not disable Gatekeeper or remove quarantine attributes. The release is not claimed to support Intel Macs or Universal 2.
 
-3. Continue only when the command reports `OK`, then extract the ZIP in Finder.
-4. Move `GlideTranslate.app` to Applications if you want to keep it there.
-5. For the first launch, Control-click the app, choose **Open**, review the macOS warning, and choose **Open** again.
-
-Do not disable Gatekeeper or remove quarantine attributes. If Finder does not offer the Open action, use the [source-build path](#build-from-source). The release is not claimed to support Intel Macs or Universal 2.
-
-For the full trust model and optional bundle checks, see [Distribution](docs/distribution.md).
+For the full trust model and optional bundle checks, see [Distribution](docs/distribution.md). Release changes are summarized in the [Changelog](CHANGELOG.md).
 
 ## First run
 
@@ -230,6 +227,7 @@ Before opening a pull request, read [Contributing](CONTRIBUTING.md). Use synthet
 - [Distribution](docs/distribution.md)
 - [Building](docs/building.md)
 - [Verification](docs/verification.md)
+- [Changelog](CHANGELOG.md)
 - [Security policy](SECURITY.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 - [MIT License](LICENSE)

@@ -58,12 +58,21 @@ final class ResultPanelPresentationModel {
     func updateScrollState(
         viewportHeight: CGFloat,
         contentHeight: CGFloat,
-        offsetFromBottom: CGFloat
+        offsetFromBottom: CGFloat,
+        userInitiated: Bool = false
     ) {
+        let previousOffsetFromBottom = scrollOffsetFromBottom
         self.viewportHeight = max(0, viewportHeight)
         self.contentHeight = max(0, contentHeight)
         scrollOffsetFromBottom = max(0, offsetFromBottom)
-        followsLatest = scrollOffsetFromBottom <= 24
+        if userInitiated,
+           scrollOffsetFromBottom > previousOffsetFromBottom + 0.5 {
+            followsLatest = false
+        } else if scrollOffsetFromBottom <= 0.5 {
+            followsLatest = true
+        } else if followsLatest {
+            followsLatest = scrollOffsetFromBottom <= 24
+        }
         showsBackToLatest = !followsLatest && self.contentHeight > self.viewportHeight
     }
 

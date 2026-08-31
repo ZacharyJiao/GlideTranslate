@@ -40,30 +40,32 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 The helper writes DerivedData under `.build/xcode-derived-data`. It does not
 create a signed distribution artifact.
 
-## Build the ad hoc-signed package
+## Build the ad hoc-signed DMG
 
-The release helper produces an Apple-silicon ZIP with an ad hoc signature. That
-signature detects bundle changes but does not establish Apple trust and cannot
-replace Developer ID signing or notarization.
+The release helper produces one Apple-silicon DMG with an ad hoc-signed app.
+That signature detects bundle changes but does not establish Apple trust and
+cannot replace Developer ID signing or notarization.
 
 ```bash
 release_root="$(mktemp -d)"
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   ./script/build_release_archive.sh "$release_root/archive"
-./script/package_adhoc_release.sh \
+./script/package_dmg_release.sh \
   "$release_root/archive/GlideTranslate-arm64.xcarchive" \
   "$release_root/package"
 ```
 
-The package directory must not already exist. A successful run creates exactly:
+The package directory must not already exist. A successful run creates exactly
+one file:
 
-- `GlideTranslate-0.2.0-macos-arm64.zip`
-- `GlideTranslate-0.2.0-macos-arm64.zip.sha256`
+- `GlideTranslate-0.2.1-macos-arm64.dmg`
 
 The packager verifies the version, build number, arm64 architecture, hardened-
 runtime flag, empty approved entitlements, ad hoc identity, absence of a
 Developer ID authority/team, expected Gatekeeper rejection, payload policy,
-ZIP extraction, signature integrity, and checksum equality.
+DMG creation, a read-only/nobrowse mount, the exact drag-to-Applications root
+layout, app-tree integrity across the mount round trip, signature integrity,
+and final payload inspection. The DMG itself is not claimed to be signed.
 
 ## Run the deterministic aggregate
 

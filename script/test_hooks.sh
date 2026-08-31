@@ -34,6 +34,19 @@ head_sha="$(git -C "$repository" rev-parse HEAD)"
 printf 'refs/heads/main %s refs/heads/main %040d\n' "$head_sha" 0 |
   (cd "$repository" && .git/hooks/pre-push synthetic "$fixture_root/unused-remote")
 
+GIT_COMMITTER_NAME=GitHub GIT_COMMITTER_EMAIL=noreply@github.com \
+  git -C "$repository" commit -q --allow-empty \
+    -m 'Synthetic accepted remote merge'
+remote_base="$(git -C "$repository" rev-parse HEAD)"
+git -C "$repository" update-ref refs/remotes/origin/main "$remote_base"
+git -C "$repository" commit -q --allow-empty \
+  -m 'Synthetic new branch commit'
+new_branch_head="$(git -C "$repository" rev-parse HEAD)"
+printf 'refs/heads/feature %s refs/heads/feature %040d\n' \
+  "$new_branch_head" 0 |
+  (cd "$repository" && .git/hooks/pre-push synthetic \
+    "$fixture_root/unused-remote")
+
 assert_staged_rejected() {
   case_name="$1"; expected="$2"; mode="$3"
   repo="$fixture_root/$case_name"
