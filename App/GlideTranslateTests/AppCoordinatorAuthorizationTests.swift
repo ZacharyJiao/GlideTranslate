@@ -195,7 +195,7 @@ final class AppCoordinatorAuthorizationTests: XCTestCase {
         )
     }
 
-    func testRejectedAutomaticTriggerDoesNotCancelOrDismissActiveTranslation() async {
+    func testNoValidSelectionRetiresDismissedTemporaryTranslation() async {
         let fixture = CoordinatorFixture()
         let requestID = TranslationRequestID()
         fixture.engine.suspendsStreams = true
@@ -221,12 +221,74 @@ final class AppCoordinatorAuthorizationTests: XCTestCase {
             presetID: fixture.presetID
         )
 
-        XCTAssertTrue(fixture.engine.cancelCalls.isEmpty)
+        XCTAssertEqual(fixture.engine.cancelCalls, [requestID])
         XCTAssertEqual(
             fixture.panel.dismissTemporaryCount,
-            dismissalsBeforeRejectedAutomatic
+            dismissalsBeforeRejectedAutomatic + 1
         )
         XCTAssertTrue(fixture.feedback.presentations.isEmpty)
+        fixture.engine.finish(streamIndex: 0)
+    }
+
+    func testLateTemporaryStreamCannotOverwritePinnedPanelAfterSelectionClears() async throws {
+        let panelController = ResultPanelController(configuration: .testing)
+        let fixture = CoordinatorFixture(panelPresenter: panelController)
+        fixture.engine.suspendsStreams = true
+
+        let pinnedRequestID = TranslationRequestID()
+        fixture.systemProcessor.outcome = .authorized(
+            fixture.intent(requestID: pinnedRequestID, text: "pinned source"),
+            fixture.context(text: "pinned source")
+        )
+        await fixture.coordinator.handleSystemTrigger(
+            .shortcut,
+            sourceLanguage: .automatic,
+            targetLanguage: .identified("en"),
+            presetID: fixture.presetID
+        )
+        await fixture.waitForEngineCalls(1)
+        panelController.pinTemporary()
+        let pinnedPanel = try XCTUnwrap(panelController.debugPinnedPanel)
+
+        fixture.engine.yield(.streaming(delta: "pinned update"), to: 0)
+        for _ in 0..<100 where pinnedPanel.presentation?.resultText != "pinned update" {
+            await Task.yield()
+        }
+        XCTAssertEqual(pinnedPanel.presentation?.resultText, "pinned update")
+        fixture.engine.finish(streamIndex: 0)
+
+        let temporaryRequestID = TranslationRequestID()
+        fixture.systemProcessor.outcome = .authorized(
+            fixture.intent(requestID: temporaryRequestID, text: "temporary source"),
+            fixture.context(text: "temporary source")
+        )
+        await fixture.coordinator.handleSystemTrigger(
+            .shortcut,
+            sourceLanguage: .automatic,
+            targetLanguage: .identified("en"),
+            presetID: fixture.presetID
+        )
+        await fixture.waitForEngineCalls(2)
+        let temporaryPanel = try XCTUnwrap(panelController.debugTemporaryPanel)
+
+        fixture.systemProcessor.outcome = .rejected(.noValidSelection)
+        await fixture.coordinator.handleSystemTrigger(
+            .mouse,
+            sourceLanguage: .automatic,
+            targetLanguage: .identified("en"),
+            presetID: fixture.presetID
+        )
+        XCTAssertTrue(temporaryPanel.didClose)
+        XCTAssertTrue(panelController.debugPinnedPanel === pinnedPanel)
+
+        fixture.engine.yield(.streaming(delta: "late temporary update"), to: 1)
+        for _ in 0..<100 where pinnedPanel.presentation?.resultText != "late temporary update" {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(pinnedPanel.presentation?.resultText, "pinned update")
+        XCTAssertTrue(fixture.engine.cancelCalls.contains(temporaryRequestID))
+        fixture.engine.finish(streamIndex: 1)
     }
 
     func testOlderAutomaticAttemptCannotResumeAfterNewerRejectedAttempt() async {
@@ -858,6 +920,11 @@ final class CoordinatorTranslationEngine: TranslationEngine, @unchecked Sendable
     func yield(_ update: TranslationUpdate, to streamIndex: Int) {
         continuations[streamIndex].yield(update)
     }
+
+    func finish(streamIndex: Int) {
+        continuations[streamIndex].finish()
+    }
+
     func yieldRetry(_ update: TranslationUpdate, to streamIndex: Int) {
         retryContinuations[streamIndex].yield(update)
     }
@@ -975,15 +1042,23 @@ final class CoordinatorPanelPresenter: ResultPanelPresenting {
     private(set) var dismissPinnedCount = 0
     private(set) var lastActions: ResultPanelActions?
     private(set) var actionSets: [ResultPanelActions] = []
+    private var hasTemporary = false
     func showTemporary(_ presentation: TranslationPresentation, actions: ResultPanelActions) {
         temporaryShows += 1
+        hasTemporary = true
         updates.append(presentation)
         lastActions = actions
         actionSets.append(actions)
     }
     func updateTemporary(_ presentation: TranslationPresentation) { updates.append(presentation) }
-    func dismissTemporary() { dismissTemporaryCount += 1 }
-    func pinTemporary() {}
+    @discardableResult
+    func dismissTemporary() -> Bool {
+        dismissTemporaryCount += 1
+        let hadTemporary = hasTemporary
+        hasTemporary = false
+        return hadTemporary
+    }
+    func pinTemporary() { hasTemporary = false }
     func dismissPinned() { dismissPinnedCount += 1 }
 }
 

@@ -1,45 +1,40 @@
 # Distribution
 
-When `v0.2.0` is published on GitHub Releases, its downloadable package is an
-Apple-silicon application for macOS 14 or later. Its ad hoc signature provides
-bundle-integrity verification only. The application has no Apple-trusted
+When `v0.2.1` is published on GitHub Releases, its downloadable package is one
+Apple-silicon DMG for macOS 14 or later. The app inside the DMG has an ad hoc
+signature that provides bundle-integrity verification only. The DMG itself is
+not claimed to be signed. The application has no Apple-trusted
 Developer ID signature, notarization ticket, App Store receipt, automatic
 update feed, Intel validation, or Universal 2 claim. Gatekeeper is therefore
 expected to reject an ordinary double-click on first launch.
 
-## Download and verify
+## Download
 
-If that release is present, download both files for the same version from
-[GitHub Releases](https://github.com/ZacharyJiao/GlideTranslate/releases):
-
-- `GlideTranslate-0.2.0-macos-arm64.zip`
-- `GlideTranslate-0.2.0-macos-arm64.zip.sha256`
-
-Place them in the same directory, then verify the downloaded bytes:
-
-```bash
-cd /path/to/download-directory
-/usr/bin/shasum -a 256 -c GlideTranslate-0.2.0-macos-arm64.zip.sha256
-```
-
-The command must report `OK`. Do not open the application when the checksum
-fails.
+If that release is present, download
+`GlideTranslate-0.2.1-macos-arm64.dmg` from
+[GitHub Releases](https://github.com/ZacharyJiao/GlideTranslate/releases).
 
 ## Install and open
 
-1. Extract the ZIP in Finder.
-2. Move `GlideTranslate.app` to Applications if desired.
-3. For the first launch, hold Control while clicking the app, choose **Open**,
-   review the macOS warning, and choose **Open** again.
-4. If selection translation is needed, follow the app's link to System Settings
+1. Open the DMG in Finder.
+2. Drag `GlideTranslate.app` to **Applications**.
+3. Eject the DMG.
+4. Try to open the installed app once. Because this prerelease is unidentified
+   and unnotarized, macOS may block it.
+5. If macOS blocks it, open **System Settings → Privacy & Security**, find the
+   Glide Translate message in the Security section, click **Open Anyway**, and
+   confirm **Open**.
+6. If Finder offers Control-click → **Open**, that is an alternate first-launch
+   path; otherwise use **Open Anyway** above.
+7. If selection translation is needed, follow the app's link to System Settings
    and grant Accessibility permission to this exact app copy. Manual input does
    not require Accessibility permission.
 
 Do not disable Gatekeeper, use `xattr` to remove quarantine, or weaken system
-security. If macOS does not offer the Finder Open action, use the source-build
-path in [Building](building.md) instead.
+security. If Finder does not offer the alternate Control-click path, use the
+**Open Anyway** path in System Settings instead of weakening system security.
 
-## Verify the extracted bundle
+## Optional bundle checks
 
 These optional checks confirm architecture and ad hoc integrity; they do not
 create Apple trust:
@@ -52,6 +47,6 @@ create Apple trust:
 ```
 
 The architecture output must be `arm64`, and `codesign` must exit successfully.
-An expected Gatekeeper rejection is not evidence of corruption when the ZIP
-checksum and ad hoc signature both pass; it reflects the deliberately absent
-Developer ID and notarization.
+An expected Gatekeeper rejection is consistent with the deliberately absent
+Developer ID and notarization; it does not indicate that the app-tree signature
+check failed.

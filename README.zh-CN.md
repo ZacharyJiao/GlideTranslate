@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/readme/hero-zh-cn.svg" width="100%" alt="轻译——在 macOS 上翻译所选文字或手动输入的文字">
+  <img src="./assets/readme/hero-zh-cn.svg" width="100%" alt="轻译——重视隐私的 macOS 菜单栏划词翻译工具，默认使用本机 Ollama">
 </p>
 
 <p align="center">
@@ -7,26 +7,27 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-v0.2.0-00a850" alt="v0.2.0 版本"></a>
+  <a href="https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.1"><img src="https://img.shields.io/badge/release-v0.2.1-00a850" alt="v0.2.1 版本"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-12201b" alt="需要 macOS 14 或更高版本">
   <img src="https://img.shields.io/badge/Apple%20Silicon-verified-12201b" alt="已在 Apple 芯片 Mac 上验证">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-d9a441" alt="MIT 许可证"></a>
 </p>
 
-Glide Translate（轻译）是一款运行在 macOS 14 及更高版本上的菜单栏翻译应用。它可以翻译其他应用中选中的文字，也可以直接输入文本；默认使用本机 Ollama 模型，也支持用户自行配置的 OpenAI 兼容服务。
+Glide Translate（轻译）是一款开源、重视隐私的 macOS 菜单栏翻译工具，支持划词翻译和手动输入。它运行在 macOS 14 及更高版本上，默认使用本机 Ollama 模型，也支持用户自行配置的 OpenAI 兼容服务。
 
-本文档对应 **v0.2.0**。
+本文档对应 **v0.2.1**。
 
 轻译默认使用本机 Ollama。如果用户选择局域网或云端服务，应用会先说明文字将发送到哪里，并在发送前要求确认。
 
 > [!IMPORTANT]
-> 当前可下载的 `v0.2.0` 是 Apple 芯片 Mac 的预发布版本。应用使用 ad hoc 签名检查包体完整性，但没有 Developer ID 签名，也没有经过 Apple 公证。首次打开前请先阅读[安装预发布版本](#安装预发布版本)。
+> 当前可下载的 `v0.2.1` 是 Apple 芯片 Mac 的预发布版本。应用使用 ad hoc 签名检查包体完整性，但没有 Developer ID 签名，也没有经过 Apple 公证。首次打开前请先阅读[安装预发布版本](#安装预发布版本)。
 
-## v0.2.0 使用体验
+## v0.2.1 使用体验
 
-v0.2.0 让常用的翻译操作更直接：
+v0.2.1 延续 v0.2.0 的体验升级，并进一步改善日常操作：
 
 - **结果面板会按译文长度调整。** 短译文保持紧凑，长译文获得更大的阅读空间并可滚动，同时不会遮住复制、重试、更换预设、固定和关闭按钮。向上滚动后，可以点“回到最新”查看最新内容。
+- **临时面板可以可靠关闭。** 选区通过方向键或删除键清空后，临时结果面板会关闭；已经固定的面板会保留。
 - **菜单栏里直接完成常用操作。** 可以查看翻译是否可用或已暂停、选择预设、翻译所选文字、打开手动翻译，或进入设置。
 - **各个窗口保持一致。** 手动翻译、首次引导、设置、提示词编辑和历史记录使用同一套布局和键盘操作。
 - **所有位置使用同一个图标。** 应用图标、Dock、Finder 和菜单栏都使用同一个 Logo 和配色。
@@ -57,22 +58,18 @@ v0.2.0 让常用的翻译操作更直接：
 
 ## 安装预发布版本
 
-[v0.2.0 预发布版本](https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.0)提供适用于 macOS 14 及更高版本的 Apple 芯片构建。
+[v0.2.1 预发布版本](https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.1)提供一个适用于 macOS 14 及更高版本的 Apple 芯片 DMG。
 
-1. 从发布页面同时下载 `GlideTranslate-0.2.0-macos-arm64.zip` 和 `GlideTranslate-0.2.0-macos-arm64.zip.sha256`。
-2. 将两个文件放在同一目录，然后校验 ZIP：
+1. 从发布页面下载 `GlideTranslate-0.2.1-macos-arm64.dmg`。
+2. 打开 DMG，将 `GlideTranslate.app` 拖到“应用程序”文件夹。
+3. 在 Finder 中推出 DMG。
+4. 在“应用程序”中先尝试打开一次。由于这是未识别且未公证的预发布版本，macOS 可能会拦截它。
+5. 如果 macOS 拦截，请打开“系统设置 → 隐私与安全性”，在“安全性”区域找到轻译的提示，点击“仍要打开”（Open Anyway），然后确认“打开”。
+6. 如果 Finder 提供按住 Control 点击应用并选择“打开”，也可以使用这条首次启动路径；没有该选项时，请使用上面的“仍要打开”路径。
 
-   ```bash
-   /usr/bin/shasum -a 256 -c GlideTranslate-0.2.0-macos-arm64.zip.sha256
-   ```
+不要关闭 Gatekeeper，也不要移除隔离属性。当前版本不声明支持 Intel Mac 或 Universal 2。
 
-3. 只有命令显示 `OK` 时才继续，并在 Finder 中解压 ZIP。
-4. 如需长期使用，可以将 `GlideTranslate.app` 移到“应用程序”文件夹。
-5. 第一次启动时，按住 Control 点击应用，选择“打开”，阅读 macOS 提示后再次选择“打开”。
-
-不要关闭 Gatekeeper，也不要移除隔离属性。如果 Finder 没有提供“打开”选项，请改用[从源码构建](#从源码构建)。当前版本不声明支持 Intel Mac 或 Universal 2。
-
-完整的信任边界和可选包体检查请参阅[分发说明](docs/distribution.md)。
+完整的信任边界和可选包体检查请参阅[分发说明](docs/distribution.md)，版本变化见[更新日志](CHANGELOG.zh-CN.md)。
 
 ## 第一次使用
 
@@ -230,6 +227,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 - [分发说明](docs/distribution.md)
 - [构建文档](docs/building.md)
 - [验证文档](docs/verification.md)
+- [更新日志](CHANGELOG.zh-CN.md)
 - [安全策略](SECURITY.md)
 - [第三方声明](THIRD_PARTY_NOTICES.md)
 - [MIT 许可证](LICENSE)

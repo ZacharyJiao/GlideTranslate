@@ -84,10 +84,10 @@ package actor SelectionEventMonitor: SelectionTriggerMonitoring {
             let onTriggerReceived = self.onTriggerReceived
             guard let token = await MainActor.run(body: {
                 client.addKeyDownMonitor { code, flags in
-                    guard KnownSelectionKey.classify(
+                    guard KnownSelectionKey.shouldRecheckSelection(
                         keyCode: code,
                         flags: flags
-                    ) != nil else { return }
+                    ) else { return }
                     onTriggerReceived(.keyboardSelection)
                     emit(.keyboardSelection)
                 }
@@ -116,7 +116,10 @@ package actor SelectionEventMonitor: SelectionTriggerMonitoring {
             emit(.mouse)
         case .keyDown(let code, let flags)
             where keyboardEnabled
-                && KnownSelectionKey.classify(keyCode: code, flags: flags) != nil:
+                && KnownSelectionKey.shouldRecheckSelection(
+                    keyCode: code,
+                    flags: flags
+                ):
             emit(.keyboardSelection)
         case .keyDown, .programmaticSelectionChanged:
             break

@@ -287,6 +287,10 @@ final class AppCoordinator {
                 for: trigger,
                 outcome: outcome
             )
+            if case .rejected(.noValidSelection) = outcome,
+               panelPresenter.dismissTemporary() {
+                await retireDismissedTemporaryRequest()
+            }
             guard case .authorized = outcome,
                   let claim = claimIntent() else { return }
             await cancelPriorRequest(for: claim)
@@ -860,6 +864,17 @@ final class AppCoordinator {
         if ownsActiveRequest {
             await environment.translationEngine.cancel(requestID)
         }
+    }
+
+    private func retireDismissedTemporaryRequest() async {
+        guard let request = active else { return }
+        cancelPresetPickerOwned(by: request.generation)
+        generation &+= 1
+        cancelCurrentStreamTask()
+        self.active = nil
+        presentation = nil
+        presentationGeneration = nil
+        await environment.translationEngine.cancel(request.requestID)
     }
 
     private func present(_ error: Error, claim: IntentClaim? = nil) {

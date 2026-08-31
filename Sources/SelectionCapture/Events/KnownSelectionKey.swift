@@ -34,4 +34,21 @@ package enum KnownSelectionKey: Equatable, Sendable {
         default: return nil
         }
     }
+
+    package static func shouldRecheckSelection(
+        keyCode: UInt16,
+        flags: NSEvent.ModifierFlags
+    ) -> Bool {
+        if classify(keyCode: keyCode, flags: flags) != nil {
+            return true
+        }
+        switch keyCode {
+        case 123, 124, 125, 126, 115, 119:
+            return !flags.contains(.shift)
+        case 51, 117:
+            return true
+        default:
+            return false
+        }
+    }
 }

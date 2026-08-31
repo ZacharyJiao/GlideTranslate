@@ -15,7 +15,7 @@ snapshot, runs:
 1. public-tree policy and one structured Gitleaks scan;
 2. immutable workflow-reference, localization, and compatibility-report checks;
 3. a synthetic bounded local-provider preflight harness;
-4. synthetic release-archive, ad hoc packaging, and signed-payload inspection
+4. synthetic release-archive, DMG packaging, and signed-payload inspection
    fixtures;
 5. synthetic bounded-download, safe-extraction, and external-surface fixtures;
 6. Actionlint;

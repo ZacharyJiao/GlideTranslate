@@ -848,7 +848,12 @@ private final class IntegratedPanelAdapter: ResultPanelPresenting {
         phase = presentation.phase
         phaseContinuation.yield(presentation.phase)
     }
-    func dismissTemporary() { phase = nil }
+    @discardableResult
+    func dismissTemporary() -> Bool {
+        let hadTemporary = phase != nil
+        phase = nil
+        return hadTemporary
+    }
     func pinTemporary() {}
     func dismissPinned() {}
     func wait(for expected: TranslationPresentationPhase) async {

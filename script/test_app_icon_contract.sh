@@ -64,7 +64,9 @@ $developer_dir/usr/bin/xcodebuild \
 app="$derived_data/Build/Products/Release/GlideTranslate.app"
 test -d "$app"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
-  "$app/Contents/Info.plist")" = 0.2.0
+  "$app/Contents/Info.plist")" = 0.2.1
+test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' \
+  "$app/Contents/Info.plist")" = 2
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' \
   "$app/Contents/Info.plist")" = AppIcon
 /usr/bin/find "$app/Contents/Resources" -type f \

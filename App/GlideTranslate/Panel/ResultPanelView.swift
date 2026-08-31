@@ -46,12 +46,14 @@ struct ResultPanelView: View {
             VStack(alignment: .trailing, spacing: 4) {
                 SafeRenderedOutput(
                     text: model.presentation.resultText,
+                    followsLatest: model.followsLatest,
                     latestScrollRequest: model.latestScrollRequest,
-                    onMetrics: { [weak model] viewport, content, offset in
+                    onMetrics: { [weak model] viewport, content, offset, userInitiated in
                         model?.updateScrollState(
                             viewportHeight: viewport,
                             contentHeight: content,
-                            offsetFromBottom: offset
+                            offsetFromBottom: offset,
+                            userInitiated: userInitiated
                         )
                     }
                 )
@@ -277,8 +279,10 @@ struct ResultPanelView: View {
 
 private struct SafeRenderedOutput: NSViewRepresentable {
     let text: String
+    let followsLatest: Bool
     let latestScrollRequest: Int
-    let onMetrics: (@MainActor @Sendable (CGFloat, CGFloat, CGFloat) -> Void)?
+    let onMetrics:
+        (@MainActor @Sendable (CGFloat, CGFloat, CGFloat, Bool) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onMetrics: onMetrics)
@@ -308,7 +312,7 @@ private struct SafeRenderedOutput: NSViewRepresentable {
         context.coordinator.scrollView = scrollView
         context.coordinator.installBoundsObserver()
         updateText(in: scrollView)
-        context.coordinator.reportMetrics()
+        context.coordinator.reportMetrics(userInitiated: false)
         return scrollView
     }
 
@@ -316,7 +320,7 @@ private struct SafeRenderedOutput: NSViewRepresentable {
         context.coordinator.onMetrics = onMetrics
         updateText(in: scrollView)
         context.coordinator.scrollToLatestIfRequested(latestScrollRequest)
-        context.coordinator.reportMetrics()
+        context.coordinator.reportMetrics(userInitiated: false)
     }
 
     private func updateText(in scrollView: NSScrollView) {
@@ -336,7 +340,7 @@ private struct SafeRenderedOutput: NSViewRepresentable {
         if let textContainer = textView.textContainer {
             textView.layoutManager?.ensureLayout(for: textContainer)
         }
-        if wasNearBottom {
+        if followsLatest && wasNearBottom {
             let end = max(0, textView.string.utf16.count)
             textView.scrollRangeToVisible(NSRange(location: end, length: 0))
         } else {
@@ -354,12 +358,14 @@ private struct SafeRenderedOutput: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject {
         weak var scrollView: NSScrollView?
-        var onMetrics: (@MainActor @Sendable (CGFloat, CGFloat, CGFloat) -> Void)?
+        var onMetrics:
+            (@MainActor @Sendable (CGFloat, CGFloat, CGFloat, Bool) -> Void)?
         private var boundsObserver: NSObjectProtocol?
         private var lastScrollRequest = 0
 
         init(
-            onMetrics: (@MainActor @Sendable (CGFloat, CGFloat, CGFloat) -> Void)?
+            onMetrics:
+                (@MainActor @Sendable (CGFloat, CGFloat, CGFloat, Bool) -> Void)?
         ) {
             self.onMetrics = onMetrics
         }
@@ -372,19 +378,24 @@ private struct SafeRenderedOutput: NSViewRepresentable {
                 queue: .main
             ) { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    self?.reportMetrics()
+                    self?.reportMetrics(userInitiated: true)
                 }
             }
         }
 
-        func reportMetrics() {
+        func reportMetrics(userInitiated: Bool) {
             guard let scrollView,
                   let documentView = scrollView.documentView else { return }
             let viewportHeight = scrollView.contentView.bounds.height
             let contentHeight = documentView.bounds.height
             let visibleMaxY = scrollView.contentView.bounds.maxY
             let offsetFromBottom = max(0, contentHeight - visibleMaxY)
-            onMetrics?(viewportHeight, contentHeight, offsetFromBottom)
+            onMetrics?(
+                viewportHeight,
+                contentHeight,
+                offsetFromBottom,
+                userInitiated
+            )
         }
 
         func scrollToLatestIfRequested(_ request: Int) {

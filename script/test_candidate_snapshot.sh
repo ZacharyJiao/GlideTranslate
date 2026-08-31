@@ -170,7 +170,7 @@ for probe_script in \
   test_local_ollama_preflight.sh \
   test_release_payload_inspection.sh \
   test_summarize_xcode_unit_failure.sh \
-  test_adhoc_release_packaging.sh \
+  test_dmg_release_packaging.sh \
   test_audit_release_payload.sh \
   test_download_bounded_asset.sh \
   test_safe_extract_asset.sh \

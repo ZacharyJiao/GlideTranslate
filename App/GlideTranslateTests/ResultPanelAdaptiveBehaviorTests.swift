@@ -81,6 +81,48 @@ final class ResultPanelAdaptiveBehaviorTests: XCTestCase {
         XCTAssertEqual(scrollView.contentView.bounds.origin, readingOrigin)
     }
 
+    func testFirstUserScrollTickStopsStreamingFromForcingTheOutputBackToBottom() throws {
+        let controller = ResultPanelController(configuration: .testing)
+        let initialResult = String(repeating: "synthetic streaming line\n", count: 160)
+        controller.showTemporary(
+            presentation(source: "synthetic source", result: initialResult),
+            actions: actions
+        )
+
+        let panel = try XCTUnwrap(controller.debugTemporaryPanel)
+        let model = try XCTUnwrap(panel.presentationModel)
+        let outputView = try XCTUnwrap(panel.debugOutputTextView)
+        let scrollView = try XCTUnwrap(outputView.enclosingScrollView)
+        controller.updateTemporary(
+            presentation(
+                source: "synthetic source",
+                result: initialResult + "sizing token"
+            )
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        panel.contentView?.layoutSubtreeIfNeeded()
+        outputView.scrollRangeToVisible(
+            NSRange(location: outputView.string.utf16.count, length: 0)
+        )
+        let bottomOrigin = scrollView.contentView.bounds.origin
+        XCTAssertGreaterThan(bottomOrigin.y, 4)
+
+        let userOrigin = CGPoint(x: bottomOrigin.x, y: bottomOrigin.y - 4)
+        scrollView.contentView.setBoundsOrigin(userOrigin)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        XCTAssertFalse(model.followsLatest)
+
+        controller.updateTemporary(
+            presentation(
+                source: "synthetic source",
+                result: initialResult + "sizing token and one more token"
+            )
+        )
+        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+
+        XCTAssertEqual(scrollView.contentView.bounds.origin, userOrigin)
+    }
+
     func testControllerUsesRenderedGeometryAndFallsBackWhenMeasurementFails() throws {
         let renderedMeasurement = PanelRenderedMeasurement(
             collapsedHeights: [

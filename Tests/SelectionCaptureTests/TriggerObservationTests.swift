@@ -107,7 +107,7 @@ final class TriggerObservationTests: XCTestCase {
         }
     }
 
-    func testMonitorEmitsOnlyMouseUpAndKnownEnabledKey() async {
+    func testMonitorAlsoRechecksSelectionAfterArrowAndDeleteKeys() async {
         let spy = TriggerSpy()
         let monitor = SelectionEventMonitor(emit: spy.record)
         await monitor.handle(.mouseUp, keyboardEnabled: true)
@@ -123,8 +123,24 @@ final class TriggerObservationTests: XCTestCase {
             .keyDown(code: 0, flags: [.shift]),
             keyboardEnabled: true
         )
+        await monitor.handle(
+            .keyDown(code: 123, flags: []),
+            keyboardEnabled: true
+        )
+        await monitor.handle(
+            .keyDown(code: 124, flags: []),
+            keyboardEnabled: true
+        )
+        await monitor.handle(
+            .keyDown(code: 51, flags: []),
+            keyboardEnabled: true
+        )
         await monitor.handle(.programmaticSelectionChanged, keyboardEnabled: true)
-        XCTAssertEqual(spy.values, [.mouse, .keyboardSelection])
+        XCTAssertEqual(
+            spy.values,
+            [.mouse, .keyboardSelection, .keyboardSelection,
+             .keyboardSelection, .keyboardSelection]
+        )
     }
 
     func testGlobalCallbacksReportBoundaryBeforeTriggerEmission() async throws {
@@ -143,11 +159,17 @@ final class TriggerObservationTests: XCTestCase {
 
         client.invokeMouse()
         client.invokeKey(code: 123, flags: [.shift])
+        client.invokeKey(code: 123, flags: [])
+        client.invokeKey(code: 51, flags: [])
         client.invokeKey(code: 0, flags: [.shift])
 
         XCTAssertEqual(order.values, [
             "received.mouse",
             "emit.mouse",
+            "received.keyboardSelection",
+            "emit.keyboardSelection",
+            "received.keyboardSelection",
+            "emit.keyboardSelection",
             "received.keyboardSelection",
             "emit.keyboardSelection"
         ])
