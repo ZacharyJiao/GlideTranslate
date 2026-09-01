@@ -58,7 +58,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 The package directory must not already exist. A successful run creates exactly
 one file:
 
-- `GlideTranslate-0.2.1-macos-arm64.dmg`
+- `GlideTranslate-0.2.2-macos-arm64.dmg`
 
 The packager verifies the version, build number, arm64 architecture, hardened-
 runtime flag, empty approved entitlements, ad hoc identity, absence of a

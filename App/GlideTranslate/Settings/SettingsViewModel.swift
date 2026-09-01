@@ -106,7 +106,10 @@ enum SettingsSafeError: CaseIterable, Equatable, Sendable {
     case selectionEffectUnavailable
     case invalidValue
     case providerUnavailable
-    case confirmationChanged
+    case missingModel
+    case destinationConfirmationRequired
+    case credentialRejected
+    case providerFailure
     case promptUnavailable
     case promptReplacementRequired
     case historyUnavailable
@@ -127,13 +130,57 @@ enum SettingsCredentialDisposition: String, CaseIterable, Identifiable, Sendable
     case replace
 
     var id: String { rawValue }
+
+    static func availableCases(hasExistingCredential: Bool) -> [Self] {
+        hasExistingCredential ? allCases : []
+    }
+}
+
+enum ProviderReadiness: String, Equatable, Sendable {
+    case ready
+    case missingModel
+    case destinationConfirmationRequired
+    case credentialRejected
+    case providerFailure
+
+    static func resolve(
+        model: String,
+        privacyClass: DestinationPrivacyClass
+    ) -> Self {
+        if model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return .missingModel
+        }
+        if privacyClass == .unresolvedOrChanged {
+            return .destinationConfirmationRequired
+        }
+        return .ready
+    }
 }
 
 struct SettingsProviderDescriptor: Identifiable, Equatable, Sendable {
     let id: ProviderConfigurationID
     let protocolKind: ProviderProtocolKind
+    let model: String
     let privacyClass: DestinationPrivacyClass
     let hasCredential: Bool
+
+    init(
+        id: ProviderConfigurationID,
+        protocolKind: ProviderProtocolKind,
+        model: String = "",
+        privacyClass: DestinationPrivacyClass,
+        hasCredential: Bool
+    ) {
+        self.id = id
+        self.protocolKind = protocolKind
+        self.model = model
+        self.privacyClass = privacyClass
+        self.hasCredential = hasCredential
+    }
+
+    var readiness: ProviderReadiness {
+        ProviderReadiness.resolve(model: model, privacyClass: privacyClass)
+    }
 }
 
 struct SettingsProviderDetails: Equatable, Sendable {
@@ -143,6 +190,10 @@ struct SettingsProviderDetails: Equatable, Sendable {
     let model: String
     let privacyClass: DestinationPrivacyClass
     let hasCredential: Bool
+
+    var readiness: ProviderReadiness {
+        ProviderReadiness.resolve(model: model, privacyClass: privacyClass)
+    }
 }
 
 struct SettingsProviderDraft: Equatable, Sendable {
@@ -216,7 +267,11 @@ struct ProductionSettingsProviderManager: SettingsProviderManaging {
     let management: any ProviderManagement
 
     func descriptors() async throws -> [SettingsProviderDescriptor] {
-        try await management.descriptors().map(Self.map)
+        let descriptors = try await management.descriptors()
+        return await Self.displayDescriptors(
+            from: descriptors,
+            management: management
+        )
     }
 
     func configuration(_ id: ProviderConfigurationID) async throws -> SettingsProviderDetails {
@@ -243,7 +298,7 @@ struct ProductionSettingsProviderManager: SettingsProviderManaging {
             ),
             credential: consume credential
         )
-        return Self.map(descriptor)
+        return await Self.displayDescriptor(descriptor, management: management)
     }
 
     func update(
@@ -260,7 +315,7 @@ struct ProductionSettingsProviderManager: SettingsProviderManaging {
             ),
             credential: consume credential
         )
-        return Self.map(descriptor)
+        return await Self.displayDescriptor(descriptor, management: management)
     }
 
     func automaticApplications(
@@ -284,6 +339,32 @@ struct ProductionSettingsProviderManager: SettingsProviderManaging {
         SettingsProviderDescriptor(
             id: descriptor.id,
             protocolKind: descriptor.protocolKind,
+            privacyClass: descriptor.privacyClass,
+            hasCredential: descriptor.hasCredential
+        )
+    }
+
+    static func displayDescriptors(
+        from descriptors: [SanitizedProviderDescriptor],
+        management: any ProviderManagement
+    ) async -> [SettingsProviderDescriptor] {
+        var result: [SettingsProviderDescriptor] = []
+        result.reserveCapacity(descriptors.count)
+        for descriptor in descriptors {
+            result.append(await displayDescriptor(descriptor, management: management))
+        }
+        return result
+    }
+
+    private static func displayDescriptor(
+        _ descriptor: SanitizedProviderDescriptor,
+        management: any ProviderManagement
+    ) async -> SettingsProviderDescriptor {
+        let model = try? await management.configuration(descriptor.id).model
+        return SettingsProviderDescriptor(
+            id: descriptor.id,
+            protocolKind: descriptor.protocolKind,
+            model: model ?? "",
             privacyClass: descriptor.privacyClass,
             hasCredential: descriptor.hasCredential
         )
@@ -352,7 +433,8 @@ final class SettingsViewModel {
     private(set) var providers: [SettingsProviderDescriptor] = []
     private(set) var selectedProvider: SettingsProviderDetails?
     private(set) var discoveredModels: [String] = []
-    private(set) var confirmationPreview: SettingsConfirmationPreview?
+    private(set) var providerConnectionInFlight = false
+    private(set) var providerActivationInFlight = false
     private(set) var automaticApplications: Set<ApplicationIdentity> = []
     private(set) var safeError: SettingsSafeError?
     private(set) var shortcutError: SettingsSafeError?
@@ -402,6 +484,8 @@ final class SettingsViewModel {
     private var promptPreviewGeneration: UInt = 0
     private var promptCatalogGeneration: UInt = 0
     private var historyContentGeneration: UInt = 0
+    private(set) var credentialDraft = ""
+    private var credentialDraftOwner: ProviderConfigurationID?
 
     init(
         initialSnapshot: PreferencesSnapshot,
@@ -452,6 +536,12 @@ final class SettingsViewModel {
     var availablePromptIDs: [PresetID] {
         builtInPrompts.map(\.id) + customPrompts.map(\.id)
     }
+
+    var defaultProviderDescriptor: SettingsProviderDescriptor? {
+        guard let defaultProviderID = snapshot.defaultProviderID else { return nil }
+        return providers.first { $0.id == defaultProviderID }
+    }
+
     var canSavePromptDraft: Bool {
         promptDraft != nil && promptValidationFailure == nil && !promptMutationInFlight
     }
@@ -484,8 +574,26 @@ final class SettingsViewModel {
     }
 
     func setCredentialInput(_ value: String) {
+        setCredentialInput(value, for: credentialDraftOwner)
+    }
+
+    func setCredentialInput(
+        _ value: String,
+        for owner: ProviderConfigurationID?
+    ) {
+        guard owner == credentialDraftOwner else { return }
         credentialInput = value
+        credentialDraft = value
         credentialFieldIsEmpty = value.isEmpty
+    }
+
+    func beginNewProviderCredentialDraft() {
+        _ = beginProviderState(for: nil)
+        resetCredentialDraft(owner: nil)
+    }
+
+    func beginProviderCredentialDraft(for id: ProviderConfigurationID) {
+        resetCredentialDraft(owner: id)
     }
 
     func recordShortcutCandidate(_ descriptor: ShortcutDescriptor) {
@@ -1028,11 +1136,12 @@ final class SettingsViewModel {
             safeError = nil
             await notifyRuntimeProjection()
         } catch {
-            safeError = .providerUnavailable
+            safeError = providerSafeError(for: error)
         }
     }
 
     func selectProvider(_ id: ProviderConfigurationID) async {
+        beginProviderCredentialDraft(for: id)
         let generation = beginProviderState(for: id)
         do {
             let details = try await provider.configuration(id)
@@ -1041,7 +1150,7 @@ final class SettingsViewModel {
             safeError = nil
         } catch {
             guard isCurrentProviderState(generation, id: id) else { return }
-            safeError = .providerUnavailable
+            safeError = providerSafeError(for: error)
         }
     }
 
@@ -1056,7 +1165,7 @@ final class SettingsViewModel {
         } catch {
             guard isCurrentProviderState(generation, id: id) else { return }
             discoveredModels = []
-            safeError = .providerUnavailable
+            safeError = providerSafeError(for: error)
         }
     }
 
@@ -1065,105 +1174,171 @@ final class SettingsViewModel {
         draft: SettingsProviderDraft,
         credentialDisposition: SettingsCredentialDisposition
     ) async {
+        _ = await persistProviderConfiguration(
+            id: id,
+            draft: draft,
+            credentialDisposition: credentialDisposition,
+            requiresModel: true
+        )
+    }
+
+    func connectProvider(
+        id: ProviderConfigurationID?,
+        draft: SettingsProviderDraft,
+        credentialDisposition: SettingsCredentialDisposition
+    ) async {
+        guard !providerConnectionInFlight else { return }
+        providerConnectionInFlight = true
+        defer { providerConnectionInFlight = false }
+
+        guard let connectedID = await persistProviderConfiguration(
+            id: id,
+            draft: draft,
+            credentialDisposition: credentialDisposition,
+            requiresModel: false
+        ) else { return }
+        let generation = providerStateGeneration
+        do {
+            let models = try await inspection.discoverModels(for: connectedID)
+            guard isCurrentProviderState(generation, id: connectedID) else { return }
+            discoveredModels = models
+            safeError = nil
+        } catch {
+            guard isCurrentProviderState(generation, id: connectedID) else { return }
+            discoveredModels = []
+            safeError = providerSafeError(for: error)
+        }
+    }
+
+    func activateProviderModel(
+        _ id: ProviderConfigurationID,
+        model: String
+    ) async {
+        guard !providerActivationInFlight else { return }
+        let selectedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !selectedModel.isEmpty else {
+            safeError = .missingModel
+            return
+        }
+        providerActivationInFlight = true
+        defer { providerActivationInFlight = false }
+
+        let details: SettingsProviderDetails
+        do {
+            if let selectedProvider, selectedProvider.id == id {
+                details = selectedProvider
+            } else {
+                details = try await provider.configuration(id)
+            }
+        } catch {
+            safeError = providerSafeError(for: error)
+            return
+        }
+        guard await persistProviderConfiguration(
+            id: id,
+            draft: SettingsProviderDraft(
+                protocolKind: details.protocolKind,
+                endpoint: details.endpoint,
+                model: selectedModel
+            ),
+            credentialDisposition: .preserve,
+            requiresModel: true
+        ) != nil else { return }
+        await setDefaultProvider(id)
+    }
+
+    private func persistProviderConfiguration(
+        id: ProviderConfigurationID?,
+        draft: SettingsProviderDraft,
+        credentialDisposition: SettingsCredentialDisposition,
+        requiresModel: Bool
+    ) async -> ProviderConfigurationID? {
         let requestGeneration = providerStateGeneration
         let requestActiveID = activeProviderID
+        let requestCredentialDraftOwner = credentialDraftOwner
         let model = draft.model.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !model.isEmpty else {
-            safeError = .invalidValue
-            return
+        guard !requiresModel || !model.isEmpty else {
+            safeError = .missingModel
+            return nil
         }
         let normalized = SettingsProviderDraft(
             protocolKind: draft.protocolKind,
             endpoint: draft.endpoint,
             model: model
         )
+        let descriptor: SettingsProviderDescriptor
         do {
-            let descriptor: SettingsProviderDescriptor
             if let id {
                 descriptor = try await updateProvider(
                     id: id,
                     draft: normalized,
-                    disposition: credentialDisposition
+                    disposition: credentialDisposition,
+                    credentialInput: credentialDraftOwner == id
+                        ? credentialInput : ""
                 )
             } else {
-                let input = credentialInput.isEmpty
-                    ? nil
-                    : SensitiveCredentialInput(credentialInput)
+                let input = credentialDraftOwner == nil && !credentialInput.isEmpty
+                    ? SensitiveCredentialInput(credentialInput)
+                    : nil
                 descriptor = try await provider.create(normalized, credential: consume input)
             }
-            credentialInput = ""
-            credentialFieldIsEmpty = true
-            upsert(descriptor)
-            guard providerStateGeneration == requestGeneration,
-                  activeProviderID == requestActiveID else { return }
-            _ = beginProviderState(for: descriptor.id)
-            selectedProvider = SettingsProviderDetails(
-                id: descriptor.id,
-                protocolKind: descriptor.protocolKind,
-                endpoint: normalized.endpoint,
-                model: normalized.model,
-                privacyClass: descriptor.privacyClass,
-                hasCredential: descriptor.hasCredential
-            )
-            safeError = nil
-            await notifyRuntimeProjection()
-            if descriptor.privacyClass == .unresolvedOrChanged {
-                await prepareConfirmation(for: descriptor)
-            }
         } catch {
             guard providerStateGeneration == requestGeneration,
-                  activeProviderID == requestActiveID else { return }
-            safeError = .providerUnavailable
+                  activeProviderID == requestActiveID else { return nil }
+            safeError = providerSafeError(for: error)
+            return nil
         }
-    }
 
-    func prepareConfirmation(for descriptor: SettingsProviderDescriptor) async {
+        upsert(descriptor)
+        guard providerStateGeneration == requestGeneration,
+              activeProviderID == requestActiveID,
+              credentialDraftOwner == requestCredentialDraftOwner else {
+            return nil
+        }
+        resetCredentialDraft(owner: descriptor.id)
         let generation = beginProviderState(for: descriptor.id)
-        do {
-            let details = try await provider.configuration(descriptor.id)
-            guard isCurrentProviderState(generation, id: descriptor.id) else { return }
-            let preview = try await confirmation.prepare(
-                for: descriptor.id,
-                protocolKind: descriptor.protocolKind
-            )
-            guard isCurrentProviderState(generation, id: descriptor.id) else { return }
-            selectedProvider = details
-            confirmationPreview = preview
-            safeError = nil
-        } catch {
-            guard isCurrentProviderState(generation, id: descriptor.id) else { return }
-            confirmationPreview = nil
-            safeError = .providerUnavailable
-        }
-    }
+        selectedProvider = SettingsProviderDetails(
+            id: descriptor.id,
+            protocolKind: descriptor.protocolKind,
+            endpoint: normalized.endpoint,
+            model: normalized.model,
+            privacyClass: descriptor.privacyClass,
+            hasCredential: descriptor.hasCredential
+        )
+        safeError = nil
 
-    func confirmDestination() async {
-        guard let preview = confirmationPreview,
-              selectedProvider?.id == preview.configurationID,
-              activeProviderID == preview.configurationID else {
-            safeError = .confirmationChanged
-            confirmationPreview = nil
-            return
-        }
-        let generation = providerStateGeneration
         do {
-            try await confirmation.confirm(preview)
-            guard isCurrentProviderState(
-                generation,
-                id: preview.configurationID
-            ) else { return }
-            confirmationPreview = nil
+            if descriptor.privacyClass != .localOnDevice {
+                let preview = try await confirmation.prepare(
+                    for: descriptor.id,
+                    protocolKind: descriptor.protocolKind
+                )
+                guard isCurrentProviderState(generation, id: descriptor.id) else {
+                    return nil
+                }
+                try await confirmation.confirm(preview)
+            }
+            guard isCurrentProviderState(generation, id: descriptor.id) else {
+                return nil
+            }
+            let refreshedProviders = try await provider.descriptors()
+            let details = try await provider.configuration(descriptor.id)
+            guard isCurrentProviderState(generation, id: descriptor.id) else {
+                return nil
+            }
+            providers = refreshedProviders
+            selectedProvider = details
             automaticApplications = []
             automaticApplicationsProviderID = nil
             safeError = nil
-            await reloadProviders()
+            await notifyRuntimeProjection()
+            return descriptor.id
         } catch {
-            guard isCurrentProviderState(
-                generation,
-                id: preview.configurationID
-            ) else { return }
-            confirmationPreview = nil
-            safeError = .confirmationChanged
+            guard isCurrentProviderState(generation, id: descriptor.id) else {
+                return nil
+            }
+            safeError = providerSafeError(for: error)
+            return nil
         }
     }
 
@@ -1172,7 +1347,7 @@ final class SettingsViewModel {
             try await inspection.testConnection(for: id)
             safeError = nil
         } catch {
-            safeError = .providerUnavailable
+            safeError = providerSafeError(for: error)
         }
     }
 
@@ -1191,7 +1366,7 @@ final class SettingsViewModel {
                     try await provider.setAutomaticApplications(effective, for: id)
                 } catch {
                     guard isCurrentProviderState(generation, id: id) else { return }
-                    safeError = .providerUnavailable
+                    safeError = providerSafeError(for: error)
                     return
                 }
             }
@@ -1200,7 +1375,7 @@ final class SettingsViewModel {
         } catch {
             guard isCurrentProviderState(generation, id: id) else { return }
             automaticApplications = []
-            safeError = .providerUnavailable
+            safeError = providerSafeError(for: error)
         }
     }
 
@@ -1220,7 +1395,7 @@ final class SettingsViewModel {
             safeError = nil
         } catch {
             guard isCurrentProviderState(generation, id: id) else { return }
-            safeError = .providerUnavailable
+            safeError = providerSafeError(for: error)
         }
     }
 
@@ -1232,14 +1407,15 @@ final class SettingsViewModel {
             safeError = nil
             await notifyRuntimeProjection()
         } catch {
-            safeError = .providerUnavailable
+            safeError = providerSafeError(for: error)
         }
     }
 
     private func updateProvider(
         id: ProviderConfigurationID,
         draft: SettingsProviderDraft,
-        disposition: SettingsCredentialDisposition
+        disposition: SettingsCredentialDisposition,
+        credentialInput: String
     ) async throws -> SettingsProviderDescriptor {
         switch disposition {
         case .preserve:
@@ -1328,6 +1504,32 @@ final class SettingsViewModel {
         providers.append(descriptor)
     }
 
+    private func resetCredentialDraft(owner: ProviderConfigurationID?) {
+        credentialDraftOwner = owner
+        credentialInput = ""
+        credentialDraft = ""
+        credentialFieldIsEmpty = true
+    }
+
+    private func providerSafeError(for error: Error) -> SettingsSafeError {
+        guard let failure = error as? SanitizedFailure else {
+            return .providerUnavailable
+        }
+        switch failure {
+        case .modelUnavailable:
+            return .missingModel
+        case .destinationReconfirmationRequired:
+            return .destinationConfirmationRequired
+        case .invalidCredential:
+            return .credentialRejected
+        case .invalidProviderConfiguration, .providerProtocolFailure,
+             .providerRecoveryRequired:
+            return .providerFailure
+        default:
+            return .providerUnavailable
+        }
+    }
+
     private func notifyRuntimeProjection() async {
         do {
             let stored = try await preferences.snapshot()
@@ -1392,11 +1594,13 @@ final class SettingsViewModel {
     private func beginProviderState(
         for id: ProviderConfigurationID?
     ) -> UInt {
+        if credentialDraftOwner != id {
+            resetCredentialDraft(owner: id)
+        }
         providerStateGeneration &+= 1
         activeProviderID = id
         selectedProvider = nil
         discoveredModels = []
-        confirmationPreview = nil
         automaticApplications = []
         automaticApplicationsProviderID = nil
         return providerStateGeneration
@@ -1483,7 +1687,7 @@ private struct DevelopmentSettingsPreferencesFixture: Codable {
     var launchAtLogin = false
     var shortcut = ShortcutDescriptor.defaultOptionShiftD
     var defaultPresetID = PresetID(rawValue: "accurate-translation")
-    var defaultProviderID: ProviderConfigurationID?
+    var defaultProviderID: ProviderConfigurationID? = DevelopmentCompositionFixture.providerID
     var historyExcludedApplications: Set<ApplicationIdentity> = []
 }
 

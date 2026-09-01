@@ -187,72 +187,76 @@ struct PrivacyHistorySettingsView: View {
                 Text(viewModel.snapshot.historyEnabled
                      ? LocalizedStringKey("privacyHistory.enabled.futureWritesAndRetention")
                      : LocalizedStringKey("privacyHistory.disabled.existingRecordsRemain"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 20) {
+                    Stepper(
+                        value: retentionDays,
+                        in: 1...365
+                    ) {
+                        LabeledContent(
+                            "privacyHistory.retention",
+                            value: "\(viewModel.snapshot.historyRetentionDays)"
+                        )
+                    }
+                    .accessibilityValue("\(viewModel.snapshot.historyRetentionDays)")
+                    .accessibilityIdentifier("privacyHistory.retention")
+
+                    Stepper(
+                        value: maximumCount,
+                        in: 1...10_000
+                    ) {
+                        LabeledContent(
+                            "privacyHistory.maximumCount",
+                            value: "\(viewModel.snapshot.historyMaximumCount)"
+                        )
+                    }
+                    .accessibilityValue("\(viewModel.snapshot.historyMaximumCount)")
+                    .accessibilityLabel("privacyHistory.maximumCount.accessibility")
+                    .accessibilityIdentifier("privacyHistory.maximumCount")
+                }
             }
             .accessibilityIdentifier("privacyHistory.enabled")
 
-            Stepper(
-                value: retentionDays,
-                in: 1...365
-            ) {
-                LabeledContent(
-                    "privacyHistory.retention",
-                    value: "\(viewModel.snapshot.historyRetentionDays)"
-                )
-            }
-            .accessibilityValue("\(viewModel.snapshot.historyRetentionDays)")
-            .accessibilityIdentifier("privacyHistory.retention")
-
-            Stepper(
-                value: maximumCount,
-                in: 1...10_000
-            ) {
-                LabeledContent(
-                    "privacyHistory.maximumCount",
-                    value: "\(viewModel.snapshot.historyMaximumCount)"
-                )
-            }
-            .accessibilityValue("\(viewModel.snapshot.historyMaximumCount)")
-            .accessibilityLabel("privacyHistory.maximumCount.accessibility")
-            .accessibilityIdentifier("privacyHistory.maximumCount")
-
             Section("privacyHistory.exclusions") {
                 Text("privacyHistory.exclusions.preferencesOnly")
-                ForEach(
-                    viewModel.snapshot.generalAutomaticApplications.sorted {
-                        $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
-                    },
-                    id: \.bundleIdentifier
-                ) { application in
-                    Toggle(
-                        application.displayName,
-                        isOn: exclusion(application)
-                    )
+                if !sortedApplications.isEmpty {
+                    SettingsApplicationGrid(applications: sortedApplications) { application in
+                        Toggle(
+                            "",
+                            isOn: exclusion(application)
+                        )
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
+                    }
                 }
             }
             .accessibilityIdentifier("privacyHistory.exclusions")
 
-            Button("privacyHistory.search") { historyPresented = true }
-                .accessibilityIdentifier("privacyHistory.search")
-
             Section("privacyHistory.diagnostics") {
                 Text("privacyHistory.diagnostics.previewFirst")
-                Button("privacyHistory.diagnostics.start") {
-                    viewModel.performOwned { await $0.startDiagnostics() }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Button("privacyHistory.search") { historyPresented = true }
+                        .accessibilityIdentifier("privacyHistory.search")
+                    Button("privacyHistory.diagnostics.start") {
+                        viewModel.performOwned { await $0.startDiagnostics() }
+                    }
+                    .accessibilityHint("privacyHistory.diagnostics.start.hint")
+                    .disabled(viewModel.diagnosticsInFlight)
+                    Spacer()
+                    Button("privacyHistory.reset", role: .destructive) {
+                        resetConfirmationPresented = true
+                    }
+                    .accessibilityHint("privacyHistory.reset.hint")
+                    .disabled(viewModel.resetInFlight)
+                    .accessibilityIdentifier("privacyHistory.reset")
                 }
-                .accessibilityHint("privacyHistory.diagnostics.start.hint")
-                .disabled(viewModel.diagnosticsInFlight)
             }
             .accessibilityIdentifier("privacyHistory.diagnostics")
-
-            Button("privacyHistory.reset", role: .destructive) {
-                resetConfirmationPresented = true
-            }
-            .accessibilityHint("privacyHistory.reset.hint")
-            .disabled(viewModel.resetInFlight)
-            .accessibilityIdentifier("privacyHistory.reset")
-
-            Color.clear.frame(height: 0).accessibilityIdentifier("privacyHistory.delete")
-            Color.clear.frame(height: 0).accessibilityIdentifier("privacyHistory.clear")
 
             if let report = viewModel.resetReport {
                 Section("privacyHistory.reset.report") {
@@ -268,7 +272,9 @@ struct PrivacyHistorySettingsView: View {
         }
         .formStyle(.grouped)
         .sheet(isPresented: $historyPresented) {
-            HistoryView(viewModel: viewModel)
+            HistoryView(viewModel: viewModel) {
+                historyPresented = false
+            }
                 .frame(
                     minWidth: 680,
                     idealWidth: 760,
@@ -328,6 +334,12 @@ struct PrivacyHistorySettingsView: View {
                 }
             }
         )
+    }
+
+    private var sortedApplications: [ApplicationIdentity] {
+        viewModel.snapshot.generalAutomaticApplications.sorted {
+            $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+        }
     }
 }
 

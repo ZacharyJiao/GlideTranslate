@@ -51,21 +51,41 @@ struct GeneralSettingsView: View {
                         Text("general.defaultProvider.unavailable").tag(Optional(current))
                     }
                     ForEach(viewModel.providers) { provider in
-                        Text(LocalizedStringKey(provider.protocolKind.localizationKey))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(LocalizedStringKey(provider.protocolKind.localizationKey))
+                            Text(verbatim: provider.model.isEmpty ? "—" : provider.model)
+                                .font(.caption)
+                        }
                             .tag(Optional(provider.id))
                     }
                 }
                 .accessibilityIdentifier("general.defaultProvider")
+
+                if let provider = viewModel.defaultProviderDescriptor {
+                    ProviderStatusView(
+                        model: provider.model,
+                        readiness: provider.readiness,
+                        locality: provider.privacyClass,
+                        hasCredential: provider.hasCredential,
+                        routeExplanation: "general.defaultProvider.details"
+                    )
+                } else {
+                    Text("general.defaultProvider.none.explanation")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Section("general.section.capture") {
                 LabeledContent("general.shortcut") {
-                    HStack {
-                        ShortcutRecorderField(descriptor: shortcutCandidate)
-                            .frame(width: 120)
-                        Button("general.shortcut.apply") {
-                            let descriptor = viewModel.shortcutCandidate
-                            viewModel.performOwned { await $0.setShortcut(descriptor) }
+                    ViewThatFits(in: .horizontal) {
+                        HStack {
+                            shortcutRecorder
+                            shortcutApplyButton
+                        }
+                        VStack(alignment: .trailing, spacing: 8) {
+                            shortcutRecorder
+                            shortcutApplyButton
                         }
                     }
                 }
@@ -84,6 +104,18 @@ struct GeneralSettingsView: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var shortcutRecorder: some View {
+        ShortcutRecorderField(descriptor: shortcutCandidate)
+            .frame(width: 120)
+    }
+
+    private var shortcutApplyButton: some View {
+        Button("general.shortcut.apply") {
+            let descriptor = viewModel.shortcutCandidate
+            viewModel.performOwned { await $0.setShortcut(descriptor) }
+        }
     }
 
     var shortcutPresentation: GeneralShortcutPresentation {
@@ -179,5 +211,45 @@ struct GeneralSettingsView: View {
                 viewModel.performOwned { await $0.setAutomaticCaptureEnabled(value) }
             }
         )
+    }
+}
+
+struct ProviderStatusView: View {
+    let model: String
+    let readiness: ProviderReadiness
+    let locality: DestinationPrivacyClass
+    let hasCredential: Bool
+    let routeExplanation: LocalizedStringKey?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LabeledContent("models.model") {
+                Text(verbatim: model.isEmpty ? "—" : model)
+                    .lineLimit(1)
+            }
+            LabeledContent("models.provider.readiness") {
+                Text(LocalizedStringKey(readiness.localizationKey))
+            }
+            LabeledContent("models.credential") {
+                Text(LocalizedStringKey(
+                    hasCredential
+                        ? "models.credential.present"
+                        : "models.credential.missing"
+                ))
+            }
+            LabeledContent("general.defaultProvider.destination") {
+                Label(
+                    LocalizedStringKey(locality.localizationKey),
+                    systemImage: locality == .localOnDevice
+                        ? "desktopcomputer" : "network"
+                )
+            }
+            if let routeExplanation {
+                Text(routeExplanation)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityIdentifier("provider-status")
     }
 }

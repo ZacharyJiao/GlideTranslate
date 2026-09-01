@@ -12,41 +12,69 @@ struct PromptEditorView: View {
                 explanation: "prompts.editor.explanationText"
             )
             Form {
-            if viewModel.promptDraft != nil {
-                TextField("prompts.editor.name", text: stringBinding(\.name))
-                TextField("prompts.editor.explanation", text: stringBinding(\.explanation))
-                TextEditor(text: stringBinding(\.template))
-                    .frame(minHeight: 180)
-                Picker("prompts.editor.target", selection: languageBinding) {
-                    Text("language.automatic").tag(LanguageChoice.automatic)
-                    Text("language.english").tag(LanguageChoice.identified("en"))
-                    Text("language.simplifiedChinese").tag(LanguageChoice.identified("zh-Hans"))
-                }
-                Picker("prompts.editor.action", selection: actionBinding) {
-                    Text("prompts.action.translate").tag(PresetAction.translate)
-                    Text("prompts.action.explainWord").tag(PresetAction.explainWord)
-                    Text("prompts.action.explainSentence").tag(PresetAction.explainSentence)
-                    Text("prompts.action.polish").tag(PresetAction.polish)
-                }
-                if let failure = viewModel.promptValidationFailure {
-                    Text(LocalizedStringKey("prompts.validation.\(failure.rawValue)"))
-                }
-                HStack {
-                    Button("common.cancel") { isPresented = false }
-                    Spacer()
-                    Button("common.save") {
-                        viewModel.performOwned { model in
-                            await model.savePromptDraft()
-                            if model.promptDraft == nil { isPresented = false }
+                if viewModel.promptDraft != nil {
+                    TextField("prompts.editor.name", text: stringBinding(\.name))
+                    TextField(
+                        "prompts.editor.explanation",
+                        text: stringBinding(\.explanation)
+                    )
+                    Section("prompts.editor.template") {
+                        Text("prompts.editor.template.guidance")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextEditor(text: stringBinding(\.template))
+                            .font(.body.monospaced())
+                            .frame(minHeight: 180)
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(.separator, lineWidth: 1)
+                            }
+                        LabeledContent("prompts.editor.placeholder.required") {
+                            Text(verbatim: "{text}")
+                                .font(.body.monospaced())
+                                .textSelection(.enabled)
+                        }
+                        LabeledContent("prompts.editor.placeholder.optional") {
+                            Text(verbatim: "{source_language}  {target_language}")
+                                .font(.caption.monospaced())
+                                .textSelection(.enabled)
                         }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(GlideVisualTokens.actionEmerald)
-                    .disabled(!viewModel.canSavePromptDraft)
+                    Picker("prompts.editor.target", selection: languageBinding) {
+                        Text("language.automatic").tag(LanguageChoice.automatic)
+                        Text("language.english").tag(LanguageChoice.identified("en"))
+                        Text("language.simplifiedChinese")
+                            .tag(LanguageChoice.identified("zh-Hans"))
+                    }
+                    Picker("prompts.editor.action", selection: actionBinding) {
+                        Text("prompts.action.translate").tag(PresetAction.translate)
+                        Text("prompts.action.explainWord").tag(PresetAction.explainWord)
+                        Text("prompts.action.explainSentence")
+                            .tag(PresetAction.explainSentence)
+                        Text("prompts.action.polish").tag(PresetAction.polish)
+                    }
+                    if let failure = viewModel.promptValidationFailure {
+                        Text(LocalizedStringKey(
+                            "prompts.validation.\(failure.rawValue)"
+                        ))
+                    }
                 }
             }
-            }
             .formStyle(.grouped)
+
+            HStack {
+                Button("common.cancel") { isPresented = false }
+                Spacer()
+                Button("common.save") {
+                    viewModel.performOwned { model in
+                        await model.savePromptDraft()
+                        if model.promptDraft == nil { isPresented = false }
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(GlideVisualTokens.actionEmerald)
+                .disabled(!viewModel.canSavePromptDraft)
+            }
         }
         .padding(GlideVisualTokens.pagePadding)
         .frame(minWidth: 560, minHeight: 500)

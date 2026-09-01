@@ -164,6 +164,38 @@ final class ProductionCompositionTests: XCTestCase {
         XCTAssertTrue(terminationCompleted)
     }
 
+    func testProviderDisplayProjectionLoadsModelFromConfigurationDetail() async throws {
+        let providerID = ProviderConfigurationID(rawValue: UUID())
+        let sanitized = SanitizedProviderDescriptor(
+            id: providerID,
+            protocolKind: .openAICompatible,
+            privacyClass: .cloud,
+            hasCredential: true
+        )
+        let details = ProviderConfigurationDetails(
+            id: providerID,
+            protocolKind: .openAICompatible,
+            endpoint: URL(string: "https://example.invalid/v1")!,
+            model: "detail-model",
+            privacyClass: .cloud,
+            hasCredential: true
+        )
+        let management = CompositionProviderManagement(
+            descriptors: [sanitized],
+            configurations: [details]
+        )
+
+        let displayed = try await ProductionSettingsProviderManager(
+            management: management
+        ).descriptors()
+
+        XCTAssertEqual(displayed.first?.model, "detail-model")
+        XCTAssertEqual(
+            Set(Mirror(reflecting: sanitized).children.compactMap(\.label)),
+            ["id", "protocolKind", "privacyClass", "hasCredential"]
+        )
+    }
+
     @MainActor
     func testSettingsResetDrainsProviderOperationBeforeResetAll() async throws {
         let providerID = ProviderConfigurationID(rawValue: UUID())
@@ -850,10 +882,17 @@ private actor CompositionReset: PrivacyDataResetting {
 
 private actor CompositionProviderManagement: ProviderManagement {
     private let descriptorValues: [SanitizedProviderDescriptor]
+    private let configurationValues: [ProviderConfigurationID: ProviderConfigurationDetails]
     private(set) var descriptorReadCount = 0
 
-    init(descriptors: [SanitizedProviderDescriptor] = []) {
+    init(
+        descriptors: [SanitizedProviderDescriptor] = [],
+        configurations: [ProviderConfigurationDetails] = []
+    ) {
         descriptorValues = descriptors
+        configurationValues = Dictionary(
+            uniqueKeysWithValues: configurations.map { ($0.id, $0) }
+        )
     }
 
     func descriptors() async throws -> [SanitizedProviderDescriptor] {
@@ -861,6 +900,9 @@ private actor CompositionProviderManagement: ProviderManagement {
         return descriptorValues
     }
     func configuration(_ id: ProviderConfigurationID) async throws -> ProviderConfigurationDetails {
+        if let configuration = configurationValues[id] {
+            return configuration
+        }
         throw SanitizedFailure.invalidProviderConfiguration
     }
     func create(

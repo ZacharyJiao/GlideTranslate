@@ -13,6 +13,19 @@ protocol AppSceneCoordinating: AnyObject {
 
 extension AppCoordinator: AppSceneCoordinating {}
 
+struct ProviderDisplaySummary: Equatable, Sendable {
+    let model: String
+    let readiness: ProviderReadiness
+    let locality: DestinationPrivacyClass
+    let hasCredential: Bool
+}
+
+enum DevelopmentCompositionFixture {
+    static let providerID = ProviderConfigurationID(
+        rawValue: UUID(uuidString: "E2C0C22D-39C5-4DD9-983A-DB920BEF7DD9")!
+    )
+}
+
 @MainActor
 @Observable
 final class AppSceneState {
@@ -26,6 +39,7 @@ final class AppSceneState {
     var presetName: String
     var presetNameLocalizationKey: String?
     var providerLocality: DestinationPrivacyClass
+    var providerDisplay: ProviderDisplaySummary?
     var presetOptions: [MenuPresetOption]
 
     init(
@@ -39,6 +53,7 @@ final class AppSceneState {
         presetName: String,
         presetNameLocalizationKey: String? = nil,
         providerLocality: DestinationPrivacyClass,
+        providerDisplay: ProviderDisplaySummary? = nil,
         presetOptions: [MenuPresetOption] = []
     ) {
         self.coordinator = coordinator
@@ -51,6 +66,7 @@ final class AppSceneState {
         self.presetName = presetName
         self.presetNameLocalizationKey = presetNameLocalizationKey
         self.providerLocality = providerLocality
+        self.providerDisplay = providerDisplay
         self.presetOptions = presetOptions
     }
 

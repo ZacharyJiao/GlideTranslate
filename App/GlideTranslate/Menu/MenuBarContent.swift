@@ -42,15 +42,18 @@ struct MenuBarActions: Sendable {
 
 struct MenuBarContent: View {
     let model: MenuStatusModel
+    let providerDisplay: ProviderDisplaySummary?
     let presetOptions: [MenuPresetOption]
     let actions: MenuBarActions
 
     init(
         model: MenuStatusModel,
+        providerDisplay: ProviderDisplaySummary? = nil,
         presetOptions: [MenuPresetOption] = [],
         actions: MenuBarActions
     ) {
         self.model = model
+        self.providerDisplay = providerDisplay
         self.presetOptions = presetOptions
         self.actions = actions
     }
@@ -138,13 +141,48 @@ struct MenuBarContent: View {
             .menuStyle(.borderlessButton)
             .accessibilityIdentifier("menu-command-preset")
 
-            LabeledContent("menu.provider") {
-                Label(
-                    model.localityTextKey,
-                    systemImage: model.providerLocality.symbolName
-                )
+            VStack(alignment: .leading, spacing: 6) {
+                Text("menu.provider")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                if let providerDisplay {
+                    HStack(spacing: 8) {
+                        Label(
+                            LocalizedStringKey(providerDisplay.locality.localizationKey),
+                            systemImage: providerDisplay.locality.symbolName
+                        )
+                        Text(
+                            verbatim: providerDisplay.model.isEmpty
+                                ? "—" : providerDisplay.model
+                        )
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                        Spacer(minLength: 6)
+                        Text(LocalizedStringKey(providerDisplay.readiness.localizationKey))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 8) {
+                        Text(LocalizedStringKey(
+                            providerDisplay.hasCredential
+                                ? "models.credential.present"
+                                : "models.credential.missing"
+                        ))
+                        Spacer(minLength: 6)
+                        Text("menu.provider.automatic")
+                            .multilineTextAlignment(.trailing)
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                } else {
+                    Label(
+                        model.localityTextKey,
+                        systemImage: model.providerLocality.symbolName
+                    )
+                    .font(.callout)
+                }
             }
-            .font(.callout)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("menu-command-locality")
 
             Divider()

@@ -179,6 +179,24 @@ final class AppCoordinatorAuthorizationTests: XCTestCase {
         }
     }
 
+    func testAutomaticProviderPreparationFailurePresentsTypedNextAction() async {
+        let fixture = CoordinatorFixture()
+        fixture.preflight.result = .failure(.destinationReconfirmationRequired)
+
+        await fixture.coordinator.handleSystemTrigger(
+            .mouse,
+            sourceLanguage: .automatic,
+            targetLanguage: .identified("en"),
+            presetID: fixture.presetID
+        )
+
+        XCTAssertEqual(
+            fixture.feedback.failures,
+            [.destinationReconfirmationRequired]
+        )
+        XCTAssertTrue(fixture.engine.translateCalls.isEmpty)
+    }
+
     func testExplicitShortcutRejectionStillPresentsSafeNextAction() async {
         let fixture = CoordinatorFixture(systemOutcome: .rejected(.providerChanged))
 

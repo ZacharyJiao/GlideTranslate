@@ -217,8 +217,8 @@
     },
     "error.onboarding.providerUnavailable.nextAction": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Start the service or enter a valid model manually." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "启动服务，或手动输入有效模型。" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Start the service, load its model list, and choose a model." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "启动服务，获取模型列表并选择一个模型。" } }
       }
     },
     "error.onboarding.shortcutUnavailable.message": {
@@ -231,18 +231,6 @@
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Choose one of the replacement shortcuts." } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "请选择一个替代快捷键。" } }
-      }
-    },
-    "error.settings.confirmationChanged.message": {
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "The destination changed before confirmation completed." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "确认完成前，目标位置已发生变化。" } }
-      }
-    },
-    "error.settings.confirmationChanged.nextAction": {
-      "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Review the destination again before confirming." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "重新检查目标位置后再确认。" } }
       }
     },
     "error.settings.diagnosticsUnavailable.message": {
@@ -339,6 +327,54 @@
       "localizations": {
         "en": { "stringUnit": { "state": "translated", "value": "Check the provider configuration and availability, then retry." } },
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "检查模型服务配置和可用性，然后重试。" } }
+      }
+    },
+    "error.settings.missingModel.message": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No model is selected for this provider." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "此提供商尚未选择模型。" } }
+      }
+    },
+    "error.settings.missingModel.nextAction": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Load the available models, then choose one to use." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "获取可用模型列表，然后选择要使用的模型。" } }
+      }
+    },
+    "error.settings.destinationConfirmationRequired.message": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This model needs to reconnect to its API service." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "此模型需要重新连接 API 服务。" } }
+      }
+    },
+    "error.settings.destinationConfirmationRequired.nextAction": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Open the model, load its available models again, then choose one to use." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "打开该配置，重新获取模型列表，然后选择要使用的模型。" } }
+      }
+    },
+    "error.settings.credentialRejected.message": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The provider rejected its credential." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "提供商拒绝了凭据。" } }
+      }
+    },
+    "error.settings.credentialRejected.nextAction": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Replace the credential, then test the connection again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "替换凭据，然后重新测试连接。" } }
+      }
+    },
+    "error.settings.providerFailure.message": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The provider returned an error." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "提供商返回了错误。" } }
+      }
+    },
+    "error.settings.providerFailure.nextAction": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Review the provider settings and try again." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "检查提供商设置，然后重试。" } }
       }
     },
     "error.settings.resetIncomplete.message": {
@@ -475,14 +511,14 @@
     },
     "error.translation.destinationReconfirmationRequired.message": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "The provider destination must be reconfirmed." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "需要重新确认模型服务目标位置。" } }
+        "en": { "stringUnit": { "state": "translated", "value": "The model's API connection has changed or expired." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "模型的 API 连接已变更或失效。" } }
       }
     },
     "error.translation.destinationReconfirmationRequired.nextAction": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Review and confirm the destination before retrying." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "检查并确认目标位置后再重试。" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Open Models, reconnect the service, and choose a model to use." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "打开“模型”，重新连接服务并选择要使用的模型。" } }
       }
     },
     "error.translation.firstTokenTimeout.message": {
@@ -577,8 +613,8 @@
     },
     "error.translation.offDeviceApplicationNotAllowed.nextAction": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Authorize this application for the destination, or use an explicit manual action." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "为该目标授权此应用，或使用显式手动操作。" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Allow this application to send selected text to the configured API address, or use manual translation." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "允许此应用将选中文本发送到已配置的 API 地址，或改用手动翻译。" } }
       }
     },
     "error.translation.ollamaUnavailable.message": {
@@ -1431,6 +1467,30 @@
         "zh-Hans": { "stringUnit": { "state": "translated", "value": "提供方操作" } }
       }
     },
+    "models.active": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "In use" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "正在使用" } }
+      }
+    },
+    "models.activateModel": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Use This Model" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "使用此模型" } }
+      }
+    },
+    "models.apiKey": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "API Key" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "API 密钥" } }
+      }
+    },
+    "models.apiKey.stored": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "An API key is already saved in Keychain." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "API 密钥已保存在钥匙串中。" } }
+      }
+    },
     "models.automaticApplications.load": {
       "localizations": {
         "en": {
@@ -1447,74 +1507,34 @@
         }
       }
     },
-    "models.configuration": {
+    "models.availableModels": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Configuration" } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配置" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Available Models" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "可用模型" } }
       }
     },
-    "models.confirmDestination": {
+    "models.availableModels.empty": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirm destination"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "确认目的地"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Connect to load the model list." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "连接后将自动获取模型列表。" } }
       }
     },
-    "models.confirmDestination.hint": {
+    "models.connect": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirms the reviewed protocol and privacy class."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "确认已审阅的协议和隐私类别。"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Connect and Load Models" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "连接并获取模型" } }
       }
     },
-    "models.confirmDestination.warning": {
+    "models.connection": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Review the protocol and privacy class before confirming."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "确认前请核对协议和隐私类别。"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "API Connection" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "API 连接" } }
       }
     },
-    "models.connectionTest": {
+    "models.connection.explanation": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Test connection"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "测试连接"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Enter the service URL and API key. Glide Translate will load the models offered by that service." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "输入服务 URL 和 API 密钥，轻译会获取该服务提供的模型列表。" } }
       }
     },
     "models.credential": {
@@ -1581,22 +1601,6 @@
         }
       }
     },
-    "models.credentialDisposition": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Credential action"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "凭据操作"
-          }
-        }
-      }
-    },
     "models.delete": {
       "localizations": {
         "en": {
@@ -1629,34 +1633,18 @@
         }
       }
     },
-    "models.discover": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discover models"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "发现模型"
-          }
-        }
-      }
-    },
     "models.endpoint": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Endpoint"
+            "value": "API address"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "端点"
+            "value": "API 地址"
           }
         }
       }
@@ -1675,6 +1663,12 @@
             "value": "模型"
           }
         }
+      }
+    },
+    "models.model.choose": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Choose a model" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "选择模型" } }
       }
     },
     "models.new": {
@@ -1715,36 +1709,10 @@
         }
       }
     },
-    "models.prepareConfirmation": {
+    "models.providerType": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prepare confirmation"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "准备确认"
-          }
-        }
-      }
-    },
-    "models.protocol": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Protocol"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "协议"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Provider" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "提供商" } }
       }
     },
     "models.providers": {
@@ -1779,20 +1747,10 @@
         }
       }
     },
-    "models.save": {
+    "models.refreshModels": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save provider"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存提供商"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Refresh Models" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "刷新模型列表" } }
       }
     },
     "models.timeout.connection": {
@@ -2499,6 +2457,12 @@
             "value": "全部清除"
           }
         }
+      }
+    },
+    "privacyHistory.close": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Close" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "关闭" } }
       }
     },
     "privacyHistory.clear.confirm": {
@@ -3635,6 +3599,30 @@
         }
       }
     },
+    "prompts.editor.template": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Prompt format" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "提示词格式" } }
+      }
+    },
+    "prompts.editor.template.guidance": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Write the instruction sent to the model. Include {text} exactly once where the text to translate belongs." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "填写发送给模型的指令，并在待翻译内容所在位置准确使用一次 {text}。" } }
+      }
+    },
+    "prompts.editor.placeholder.required": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Required text placeholder" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "必需的文本占位符" } }
+      }
+    },
+    "prompts.editor.placeholder.optional": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Optional language placeholders" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "可选的语言占位符" } }
+      }
+    },
     "prompts.new": {
       "localizations": {
         "en": {
@@ -3651,68 +3639,28 @@
         }
       }
     },
-    "prompts.preview": {
+    "prompts.request.title": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preview"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "预览"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "Complete Model Input" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "完整模型输入" } }
       }
     },
-    "prompts.preview.instruction": {
+    "prompts.request.explanation": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Instruction"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "指令"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "These are the two messages sent to the model. {text} is replaced by the text you translate." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "以下是发送给模型的两条消息；{text} 会替换为实际待翻译内容。" } }
       }
     },
-    "prompts.preview.sampleUserContent": {
+    "prompts.request.systemMessage": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bundled sample content"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "内置示例内容"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "System message" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "系统消息" } }
       }
     },
-    "prompts.preview.untrustedExplanation": {
+    "prompts.request.userMessage": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preview content is untrusted and is never sent automatically."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "预览内容不受信任，绝不会自动发送。"
-          }
-        }
+        "en": { "stringUnit": { "state": "translated", "value": "User message" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "用户消息" } }
       }
     },
     "prompts.selection.empty": {
@@ -4599,8 +4547,8 @@
     },
     "settings.models.explanation": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Configure local and remote providers, then verify each destination explicitly." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "配置本地或远程提供方，并明确验证每个目标位置。" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Add API services, load their available models, and choose which model to use." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "添加 API 服务，获取可用模型列表，并选择要使用的模型。" } }
       }
     },
     "settings.models": {
@@ -4643,8 +4591,8 @@
     },
     "settings.prompts.explanation": {
       "localizations": {
-        "en": { "stringUnit": { "state": "translated", "value": "Browse built-in prompts and manage custom presets with bundled previews." } },
-        "zh-Hans": { "stringUnit": { "state": "translated", "value": "浏览内置提示词，并通过内置示例管理自定义提示词。" } }
+        "en": { "stringUnit": { "state": "translated", "value": "Select a prompt to inspect every message sent to the model, or create a custom prompt." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "选择提示词可查看发送给模型的全部消息，也可新建自定义提示词。" } }
       }
     },
     "settings.prompts": {
@@ -4715,6 +4663,138 @@
             "value": "全局快捷键不可用，请尝试其他快捷键或使用菜单。"
           }
         }
+      }
+    },
+    "provider.readiness.ready": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Ready" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已就绪" } }
+      }
+    },
+    "provider.readiness.missingModel": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Model required" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "需要模型" } }
+      }
+    },
+    "provider.readiness.destinationConfirmationRequired": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Reconnect required" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "需要重新连接" } }
+      }
+    },
+    "provider.readiness.credentialRejected": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Credential rejected" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "凭据已被拒绝" } }
+      }
+    },
+    "provider.readiness.providerFailure": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Provider error" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "提供商错误" } }
+      }
+    },
+    "models.credential.new": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "New credential" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "新凭据" } }
+      }
+    },
+    "models.credential.new.explanation": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Enter a credential to store for this new provider. No existing credential is changed." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "为此新提供商输入要保存的凭据；不会更改现有凭据。" } }
+      }
+    },
+    "models.credential.present": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Credential stored" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已存储凭据" } }
+      }
+    },
+    "models.credential.missing": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "No credential stored" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "未存储凭据" } }
+      }
+    },
+    "models.provider.readiness": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Readiness" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "就绪状态" } }
+      }
+    },
+    "manual.provider.defaultRoute": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Starts with the General default; choose another provider for this request only." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "从“通用”中的默认提供商开始；选择其他提供商仅用于本次请求。" } }
+      }
+    },
+    "manual.provider.override": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "One-request override" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "仅本次请求覆盖" } }
+      }
+    },
+    "manual.provider.model": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Model" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "模型" } }
+      }
+    },
+    "general.defaultProvider.details": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Automatic selection and new manual translations use this provider." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "自动选择和新的手动翻译会使用此提供商。" } }
+      }
+    },
+    "general.defaultProvider.none.explanation": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Choose a provider before using automatic or manual translation." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "使用自动或手动翻译前，请先选择提供商。" } }
+      }
+    },
+    "menu.provider.automatic": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Automatic selection uses the General default provider." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "自动选择使用“通用”中的默认提供商。" } }
+      }
+    },
+    "menu.provider.model": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Model" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "模型" } }
+      }
+    },
+    "menu.provider.credential": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Credential" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "凭据" } }
+      }
+    },
+    "models.default": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Default" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "默认" } }
+      }
+    },
+    "models.setAsDefault": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Set as default" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "设为默认" } }
+      }
+    },
+    "general.defaultProvider.destination": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Where text is sent" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "文本发送范围" } }
+      }
+    },
+    "manual.provider.override.explanation": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This provider is used for this request only; the General default remains unchanged." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "此提供商仅用于本次请求；“通用”中的默认设置不会更改。" } }
       }
     }
   },

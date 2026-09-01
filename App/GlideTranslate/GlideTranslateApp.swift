@@ -10,6 +10,7 @@ struct GlideTranslateApp: App {
             ObservedProductionRoot(appDelegate: appDelegate) { root in
                 MenuBarContent(
                     model: root.sceneState.menuModel,
+                    providerDisplay: root.sceneState.providerDisplay,
                     presetOptions: root.sceneState.presetOptions,
                     actions: root.sceneState.menuActions
                 )
@@ -50,6 +51,7 @@ struct GlideTranslateApp: App {
                 ObservedProductionRoot(appDelegate: appDelegate) { root in
                     MenuBarContent(
                         model: root.sceneState.menuModel,
+                        providerDisplay: root.sceneState.providerDisplay,
                         presetOptions: root.sceneState.presetOptions,
                         actions: root.sceneState.menuActions
                     )
@@ -71,7 +73,8 @@ struct GlideTranslateApp: App {
             ObservedProductionRoot(appDelegate: appDelegate) { root in
                 ManualInputView(
                     viewModel: root.sceneState.manualInputViewModel,
-                    presenter: root.sceneState.manualPresenter
+                    presenter: root.sceneState.manualPresenter,
+                    defaultProviderID: root.settingsViewModel.snapshot.defaultProviderID
                 )
                     .environment(\.locale, root.settingsViewModel.uiLocale)
             } unavailable: { delegate in

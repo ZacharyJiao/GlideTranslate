@@ -39,11 +39,16 @@ struct AboutSettingsView: View {
     }
 
     private var version: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
-            as? String ?? "—"
+        let shortVersion = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion")
-            as? String ?? "—"
-        return "\(version) (\(build))"
+            as? String
+        return Self.displayVersion(shortVersion: shortVersion, build: build)
+    }
+
+    static func displayVersion(shortVersion: String?, build _: String?) -> String {
+        shortVersion ?? "—"
     }
 
     private var sourceURL: URL {

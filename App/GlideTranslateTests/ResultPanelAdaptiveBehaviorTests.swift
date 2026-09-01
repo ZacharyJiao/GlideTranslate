@@ -263,6 +263,150 @@ final class ResultPanelAdaptiveBehaviorTests: XCTestCase {
         XCTAssertFalse(model.showsBackToLatest)
     }
 
+    func testUserScrollSuspensionSurvivesProgrammaticBottomMeasurement() {
+        let model = ResultPanelPresentationModel(
+            presentation: presentation(source: "synthetic", result: "output"),
+            isPinned: false
+        )
+
+        model.updateScrollState(
+            viewportHeight: 200,
+            contentHeight: 700,
+            offsetFromBottom: 120,
+            userInitiated: true
+        )
+        XCTAssertFalse(model.followsLatest)
+
+        model.updateScrollState(
+            viewportHeight: 200,
+            contentHeight: 700,
+            offsetFromBottom: 0,
+            userInitiated: false
+        )
+        XCTAssertFalse(model.followsLatest)
+
+        model.backToLatest()
+        XCTAssertTrue(model.followsLatest)
+    }
+
+    func testUserScrollIntentSuspendsBeforeImmediateStreamingUpdate() {
+        let model = ResultPanelPresentationModel(
+            presentation: presentation(
+                source: "synthetic",
+                result: String(repeating: "output\n", count: 120)
+            ),
+            isPinned: false
+        )
+
+        model.updateScrollState(
+            viewportHeight: 200,
+            contentHeight: 700,
+            offsetFromBottom: 0
+        )
+        model.userDidBeginScrolling()
+        model.updatePresentation(
+            presentation(
+                source: "synthetic",
+                result: String(repeating: "output\n", count: 121)
+            )
+        )
+
+        XCTAssertFalse(model.followsLatest)
+        XCTAssertTrue(model.showsBackToLatest)
+        model.userDidReachLatest()
+        XCTAssertTrue(model.followsLatest)
+    }
+
+    func testScrollbarIntentAlsoSuspendsBeforeStreamingUpdate() {
+        let model = ResultPanelPresentationModel(
+            presentation: presentation(source: "synthetic", result: "output"),
+            isPinned: false
+        )
+
+        model.updateScrollState(
+            viewportHeight: 200,
+            contentHeight: 700,
+            offsetFromBottom: 0
+        )
+        model.scrollbarDidBeginDragging()
+        model.updatePresentation(
+            presentation(source: "synthetic", result: "output and one more chunk")
+        )
+
+        XCTAssertFalse(model.followsLatest)
+        model.userDidReachLatest()
+        XCTAssertTrue(model.followsLatest)
+    }
+
+    func testWheelEventSuspendsBeforeTheNextRenderedChunk() throws {
+        let controller = ResultPanelController(configuration: .testing)
+        let initial = String(repeating: "streaming line\n", count: 180)
+        controller.showTemporary(
+            presentation(source: "synthetic", result: initial),
+            actions: actions
+        )
+        let panel = try XCTUnwrap(controller.debugTemporaryPanel)
+        let model = try XCTUnwrap(panel.presentationModel)
+        let output = try XCTUnwrap(panel.debugOutputTextView)
+        let scrollView = try XCTUnwrap(output.enclosingScrollView)
+        controller.updateTemporary(
+            presentation(source: "synthetic", result: initial + " initial chunk")
+        )
+        panel.contentView?.layoutSubtreeIfNeeded()
+        output.scrollRangeToVisible(NSRange(location: output.string.utf16.count, length: 0))
+
+        let event = try XCTUnwrap(CGEvent(
+            scrollWheelEvent2Source: nil,
+            units: .pixel,
+            wheelCount: 1,
+            wheel1: 60,
+            wheel2: 0,
+            wheel3: 0
+        ).flatMap(NSEvent.init(cgEvent:)))
+        scrollView.scrollWheel(with: event)
+        let currentOrigin = scrollView.contentView.bounds.origin
+        scrollView.contentView.setBoundsOrigin(CGPoint(
+            x: currentOrigin.x,
+            y: max(0, currentOrigin.y - 80)
+        ))
+        let userOrigin = scrollView.contentView.bounds.origin
+        controller.updateTemporary(
+            presentation(source: "synthetic", result: initial + " initial chunk and next")
+        )
+
+        XCTAssertFalse(model.followsLatest)
+        XCTAssertTrue(model.showsBackToLatest)
+        XCTAssertEqual(scrollView.contentView.bounds.origin, userOrigin)
+    }
+
+    func testScrollbarKnobDragSuspendsBeforeTheNextRenderedChunk() throws {
+        let controller = ResultPanelController(configuration: .testing)
+        let initial = String(repeating: "streaming line\n", count: 180)
+        controller.showTemporary(
+            presentation(source: "synthetic", result: initial),
+            actions: actions
+        )
+        let panel = try XCTUnwrap(controller.debugTemporaryPanel)
+        let model = try XCTUnwrap(panel.presentationModel)
+        let output = try XCTUnwrap(panel.debugOutputTextView)
+        let scrollView = try XCTUnwrap(output.enclosingScrollView)
+        controller.updateTemporary(
+            presentation(source: "synthetic", result: initial + " initial chunk")
+        )
+        panel.contentView?.layoutSubtreeIfNeeded()
+        output.scrollRangeToVisible(NSRange(location: output.string.utf16.count, length: 0))
+        let scroller = try XCTUnwrap(
+            scrollView.verticalScroller as? ResultPanelIntentAwareScroller
+        )
+        scroller.beginUserScroll()
+        controller.updateTemporary(
+            presentation(source: "synthetic", result: initial + " initial chunk and next")
+        )
+
+        XCTAssertFalse(model.followsLatest)
+        XCTAssertTrue(model.showsBackToLatest)
+    }
+
     func testSourceDisclosureAndPinnedManualResizeOwnState() {
         let model = ResultPanelPresentationModel(
             presentation: presentation(source: "synthetic source", result: "output"),

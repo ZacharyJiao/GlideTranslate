@@ -1,6 +1,8 @@
+import AppKit
 import Foundation
 import PrivacyStorage
 import SharedSupport
+import SwiftUI
 import TranslationCore
 import XCTest
 
@@ -8,6 +10,166 @@ import XCTest
 
 @MainActor
 final class PrivacyHistorySettingsTests: XCTestCase {
+    func testHistoryGroupsByDayAndUsesRecognizableSourceEntryTitles() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let firstDay = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 31,
+            hour: 10
+        ))!
+        let sameDay = calendar.date(byAdding: .hour, value: -1, to: firstDay)!
+        let previousDay = calendar.date(byAdding: .day, value: -1, to: firstDay)!
+        let first = SettingsHistoryRecord(
+            id: TranslationRecordID(),
+            timestamp: firstDay,
+            presetID: PresetID(rawValue: "synthetic"),
+            sourcePreview: "First source sentence. Second sentence should not lead.",
+            resultPreview: "result"
+        )
+        let second = SettingsHistoryRecord(
+            id: TranslationRecordID(),
+            timestamp: sameDay,
+            presetID: PresetID(rawValue: "synthetic"),
+            sourcePreview: String(repeating: "leading source preview ", count: 12),
+            resultPreview: "result"
+        )
+        let third = SettingsHistoryRecord(
+            id: TranslationRecordID(),
+            timestamp: previousDay,
+            presetID: PresetID(rawValue: "synthetic"),
+            sourcePreview: "Previous day.",
+            resultPreview: "result"
+        )
+
+        let groups = HistoryView.groupedRecords(
+            [second, third, first],
+            calendar: calendar
+        )
+
+        XCTAssertEqual(groups.count, 2)
+        XCTAssertEqual(groups[0].records.map(\.id), [first.id, second.id])
+        XCTAssertEqual(groups[1].records.map(\.id), [third.id])
+        XCTAssertEqual(first.entryTitle, "First source sentence.")
+        XCTAssertTrue(second.entryTitle.hasPrefix("leading source preview"))
+        XCTAssertTrue(second.entryTitle.hasSuffix("…"))
+        XCTAssertLessThanOrEqual(second.entryTitle.count, 81)
+    }
+
+    func testHistoryLayoutKeepsSidebarAndDetailWithinStableBounds() {
+        XCTAssertEqual(HistoryLayout.sidebarMinimumWidth, 220)
+        XCTAssertEqual(HistoryLayout.sidebarIdealWidth, 260)
+        XCTAssertEqual(HistoryLayout.sidebarMaximumWidth, 320)
+        XCTAssertEqual(HistoryLayout.detailMinimumWidth, 360)
+        XCTAssertLessThan(
+            HistoryLayout.sidebarMinimumWidth,
+            HistoryLayout.sidebarIdealWidth
+        )
+        XCTAssertLessThan(
+            HistoryLayout.sidebarIdealWidth,
+            HistoryLayout.sidebarMaximumWidth
+        )
+    }
+
+    func testHistoryExpandsNewestGroupAfterFirstAsyncLoad() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let newest = calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 31,
+            hour: 10
+        ))!
+        let older = calendar.date(byAdding: .day, value: -1, to: newest)!
+        let records = [
+            SettingsHistoryRecord(
+                id: TranslationRecordID(),
+                timestamp: older,
+                presetID: PresetID(rawValue: "synthetic"),
+                sourcePreview: "Older",
+                resultPreview: "result"
+            ),
+            SettingsHistoryRecord(
+                id: TranslationRecordID(),
+                timestamp: newest,
+                presetID: PresetID(rawValue: "synthetic"),
+                sourcePreview: "Newest",
+                resultPreview: "result"
+            ),
+        ]
+
+        XCTAssertEqual(
+            HistoryView.expandedDaysAfterLoad(
+                current: [],
+                records: records,
+                calendar: calendar
+            ),
+            [calendar.startOfDay(for: newest)]
+        )
+        XCTAssertEqual(
+            HistoryView.selectionAfterLoad(current: nil, records: records),
+            records[1].id
+        )
+    }
+
+    func testHistoryEscapeDismissesWindowAndCleansHistoryCache() async {
+        let fixture = U8Fixture()
+        let record = SettingsHistoryRecord(
+            id: TranslationRecordID(),
+            timestamp: Date(),
+            presetID: PresetID(rawValue: "synthetic"),
+            sourcePreview: "source",
+            resultPreview: "result"
+        )
+        await fixture.history.setRecords([record])
+        await fixture.model.openHistory()
+        XCTAssertEqual(fixture.model.historyRecords, [record])
+
+        var closeCount = 0
+        let host = NSHostingView(
+            rootView: HistoryView(viewModel: fixture.model) {
+                closeCount += 1
+            }
+        )
+        host.frame = NSRect(x: 0, y: 0, width: 760, height: 560)
+        let createdWindow = NSWindow(
+            contentRect: host.frame,
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        createdWindow.contentView = host
+        createdWindow.makeKeyAndOrderFront(nil)
+        createdWindow.layoutIfNeeded()
+        host.layoutSubtreeIfNeeded()
+
+        let escape = NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: createdWindow.windowNumber,
+            context: nil,
+            characters: "\u{1b}",
+            charactersIgnoringModifiers: "\u{1b}",
+            isARepeat: false,
+            keyCode: 53
+        )
+        if let escape {
+            createdWindow.sendEvent(escape)
+        }
+        for _ in 0..<10 {
+            await Task.yield()
+            if closeCount == 1 { break }
+        }
+
+        XCTAssertEqual(closeCount, 1)
+        XCTAssertTrue(fixture.model.historyRecords.isEmpty)
+        createdWindow.orderOut(nil)
+        createdWindow.contentView = nil
+    }
+
     func testPrivacyHistoryRowsAreExact() {
         XCTAssertEqual(PrivacyHistorySettingsContract.rows, [
             .initial(enabled: false, recordsShown: 0),
@@ -166,6 +328,7 @@ final class PrivacyHistorySettingsTests: XCTestCase {
         XCTAssertEqual(snapshotReads, 0)
         XCTAssertEqual(fixture.model.safeError, nil)
     }
+
 }
 
 private struct U8SyntheticHistoryError: Error {}

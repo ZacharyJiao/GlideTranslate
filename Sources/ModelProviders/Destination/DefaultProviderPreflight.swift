@@ -32,7 +32,10 @@ package enum ProviderDestinationResolver {
             descriptor: descriptor,
             endpoint: endpoint,
             addresses: addresses,
-            privacyClass: DestinationClassifier.classify(addresses)
+            privacyClass: DestinationClassifier.classify(
+                addresses,
+                for: endpoint
+            )
         )
     }
 }
@@ -51,7 +54,10 @@ enum RedirectDestinationSnapshotMinter {
         guard !addresses.isEmpty else {
             throw RedirectDestinationEvidenceFailure.unresolved
         }
-        let privacyClass = DestinationClassifier.classify(addresses)
+        let privacyClass = DestinationClassifier.classify(
+            addresses,
+            for: endpoint
+        )
         guard privacyClass != .unresolvedOrChanged else {
             throw RedirectDestinationEvidenceFailure.unresolved
         }

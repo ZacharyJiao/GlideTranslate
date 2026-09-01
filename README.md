@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.1"><img src="https://img.shields.io/badge/release-v0.2.1-00a850" alt="Release v0.2.1"></a>
+  <a href="https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.2"><img src="https://img.shields.io/badge/release-v0.2.2-00a850" alt="Release v0.2.2"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-12201b" alt="macOS 14 or later">
   <img src="https://img.shields.io/badge/Apple%20Silicon-verified-12201b" alt="Verified on Apple silicon">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-d9a441" alt="MIT License"></a>
@@ -15,22 +15,23 @@
 
 Glide Translate (轻译) is an open-source, privacy-focused macOS menu-bar translator for selected text and manual input. It runs on macOS 14 or later and works with local Ollama models by default or an OpenAI-compatible service that you configure.
 
-This README documents **v0.2.1**.
+This README documents **v0.2.2**.
 
-Glide Translate uses Ollama on your Mac by default. If you choose a service on your local network or in the cloud, the app shows where the text will be sent and asks before sending it there.
+Glide Translate uses Ollama on your Mac by default. You can also add an OpenAI-compatible service by entering its API address and key, loading its available models, and choosing the model to use.
 
 > [!IMPORTANT]
-> The downloadable `v0.2.1` build is an Apple-silicon prerelease. It is ad hoc signed for bundle-integrity checks, but it is not Developer ID signed or notarized. Read [Install the prerelease](#install-the-prerelease) before opening it.
+> The downloadable `v0.2.2` build is an Apple-silicon prerelease. It is ad hoc signed for bundle-integrity checks, but it is not Developer ID signed or notarized. Read [Install the prerelease](#install-the-prerelease) before opening it.
 
-## The v0.2.1 experience
+## The v0.2.2 experience
 
-v0.2.1 keeps the v0.2.0 experience upgrade and tightens the everyday flow:
+v0.2.2 focuses on predictable provider setup, reliable selected-text behavior, and clearer macOS layouts:
 
-- **A result panel that fits the translation.** Short translations stay compact. Longer translations get more reading space and can scroll without hiding Copy, Retry, Change Preset, Pin, or Close. If you scroll up, **Back to Latest** returns to the newest text.
-- **Temporary panels dismiss reliably.** Arrow and Delete selection events dismiss a temporary result panel after the selection clears, while pinned panels remain available.
-- **Common actions in the menu bar.** See whether translation is ready or paused, choose a preset, translate selected text, open manual translation, or go to Settings.
-- **Consistent app windows.** Manual Translation, onboarding, Settings, prompt editing, and history now use the same layout and keyboard behavior.
-- **A consistent app icon.** The app icon, Dock, Finder, and menu-bar icon all use the same logo and colors.
+- **Straightforward model setup.** Add an Ollama or OpenAI-compatible provider, enter its API address and credential, load the model list, then activate the model you want to use. Manual and selected-text translation now use the selected provider consistently.
+- **Stable long-result reading.** Streaming results follow the latest text only while you stay near the bottom. Scrolling up or dragging the scrollbar no longer forces the panel back down.
+- **Reliable temporary-panel dismissal.** Clearing a selection with navigation, editing, or deletion closes an unpinned result panel while preserving pinned panels.
+- **Clearer settings and history.** Settings use a branded, compact sidebar and responsive two-pane layouts. History groups entries by date and keeps list/detail proportions stable.
+- **Complete prompt previews.** Presets show the full content sent to the model, including the documented `{text}` placeholder and template guidance.
+- **Bilingual layouts that stay aligned.** Switching between English and Simplified Chinese updates labels without rebuilding or displacing the settings window.
 
 ## Highlights
 
@@ -58,9 +59,9 @@ Automatic capture works only after you turn it on, allow the source app, and ena
 
 ## Install the prerelease
 
-The [v0.2.1 prerelease](https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.1) provides one Apple-silicon DMG for macOS 14 or later.
+The [v0.2.2 prerelease](https://github.com/ZacharyJiao/GlideTranslate/releases/tag/v0.2.2) provides one Apple-silicon DMG for macOS 14 or later.
 
-1. Download `GlideTranslate-0.2.1-macos-arm64.dmg` from the release page.
+1. Download `GlideTranslate-0.2.2-macos-arm64.dmg` from the release page.
 2. Open the DMG, then drag `GlideTranslate.app` to **Applications**.
 3. Eject the DMG from Finder.
 4. Try to open the installed app once. Because this prerelease is unidentified and unnotarized, macOS may block it.
@@ -149,10 +150,10 @@ The clipboard fallback is never used by automatic capture. When enabled, it may 
 Each provider stores a protocol, endpoint, model name, and optional credential. Credentials are kept in macOS Keychain.
 
 - **Ollama native:** the built-in default points to Ollama on this Mac, using port `11434`.
-- **OpenAI-compatible:** configure the endpoint and model required by your service.
-- **Model discovery and connection test:** available from the selected provider's settings.
+- **OpenAI-compatible:** enter the service address and API key, load its model list, then activate the model you want to use.
+- **Model discovery:** enter the provider API address and credential, then choose **Connect and Load Models**. Select a returned model and activate it to make that provider the default.
 - **Timeouts:** connection `1–60 s` (default `5 s`), first token `5–600 s` (default `120 s`), and stream idle `5–120 s` (default `30 s`).
-- **Confirm where text is sent:** required for Local Network and Cloud providers. If the service address changes or cannot be identified, the app asks again before sending text.
+- **Explicit provider selection:** translation requests use the activated provider and do not silently fall back to a different local or cloud service.
 - **Automatic applications:** off-device automatic capture requires a second, provider-specific application authorization.
 
 ### Prompts

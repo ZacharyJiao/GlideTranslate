@@ -127,6 +127,7 @@ public struct DefaultPromptPresetValidationService:
         )
         return PromptPresetPreview(
             instruction: compiled.instruction,
+            userContentTemplate: "{text}",
             sampleUserContent: compiled.userContent
         )
     }

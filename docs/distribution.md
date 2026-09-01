@@ -1,6 +1,6 @@
 # Distribution
 
-When `v0.2.1` is published on GitHub Releases, its downloadable package is one
+When `v0.2.2` is published on GitHub Releases, its downloadable package is one
 Apple-silicon DMG for macOS 14 or later. The app inside the DMG has an ad hoc
 signature that provides bundle-integrity verification only. The DMG itself is
 not claimed to be signed. The application has no Apple-trusted
@@ -11,7 +11,7 @@ expected to reject an ordinary double-click on first launch.
 ## Download
 
 If that release is present, download
-`GlideTranslate-0.2.1-macos-arm64.dmg` from
+`GlideTranslate-0.2.2-macos-arm64.dmg` from
 [GitHub Releases](https://github.com/ZacharyJiao/GlideTranslate/releases).
 
 ## Install and open

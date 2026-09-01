@@ -230,6 +230,11 @@ package enum IPAddress: Hashable, Sendable {
         }
     }
 
+    fileprivate var isProxyFakeIPv4: Bool {
+        guard case .v4(let bytes) = self else { return false }
+        return bytes[0] == 198 && (bytes[1] & 0xfe) == 18
+    }
+
     private static func isMappedIPv4(_ bytes: [UInt8]) -> Bool {
         bytes.count == 16
             && bytes[0..<10].allSatisfy { $0 == 0 }
@@ -297,5 +302,20 @@ package enum DestinationClassifier {
             return .unresolvedOrChanged
         }
         return only
+    }
+
+    package static func classify(
+        _ addresses: Set<IPAddress>,
+        for endpoint: ParsedProviderEndpoint
+    ) -> DestinationPrivacyClass {
+        let ordinary = classify(addresses)
+        guard ordinary == .unresolvedOrChanged,
+              endpoint.origin.scheme == "https",
+              !addresses.isEmpty,
+              addresses.allSatisfy(\.isProxyFakeIPv4),
+              (try? IPAddress(endpoint.origin.host)) == nil else {
+            return ordinary
+        }
+        return .cloud
     }
 }

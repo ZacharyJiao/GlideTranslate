@@ -400,9 +400,19 @@ final class ProductionCompositionRoot {
         let presets = core.presets
         let capture = core.capture
         let descriptors = try await storage.providerManagement.descriptors()
+        let settingsProviderManager = ProductionSettingsProviderManager(
+            management: storage.providerManagement
+        )
+        let displayDescriptors = await ProductionSettingsProviderManager.displayDescriptors(
+            from: descriptors,
+            management: storage.providerManagement
+        )
         let customPresets = try await presets.customPresets()
         let builtIns = await presets.builtIns()
         let defaultProvider = descriptors.first { $0.id == snapshot.defaultProviderID }
+        let defaultProviderDisplay = displayDescriptors.first {
+            $0.id == snapshot.defaultProviderID
+        }
         let accessibilityGranted = AXIsProcessTrusted()
         let providerOperational = defaultProvider.map {
             $0.privacyClass != .unresolvedOrChanged
@@ -560,9 +570,7 @@ final class ProductionCompositionRoot {
             shortcut: shortcutModel,
             launchAtLogin: SystemSettingsLaunchAtLoginController(),
             selection: selectionController,
-            provider: ProductionSettingsProviderManager(
-                management: storage.providerManagement
-            ),
+            provider: settingsProviderManager,
             inspection: ProductionSettingsProviderInspector(
                 inspection: providers.inspection
             ),
@@ -578,7 +586,7 @@ final class ProductionCompositionRoot {
             ),
             runtimeOperations: runtimeOperations,
             initialAccessibilityStatus: accessibilityGranted ? .granted : .denied,
-            initialProviders: descriptors.map(ProductionSettingsProviderManager.map),
+            initialProviders: displayDescriptors,
             initialResetReport: initialResetReport,
             snapshotChanged: { _ in
                 await runtimeProjection.refresh()
@@ -593,7 +601,7 @@ final class ProductionCompositionRoot {
         configureManualInput(
             coordinator.manualInputViewModel,
             snapshot: snapshot,
-            descriptors: descriptors,
+            descriptors: displayDescriptors,
             builtIns: builtIns,
             customPresets: customPresets
         )
@@ -616,6 +624,14 @@ final class ProductionCompositionRoot {
             presetName: presetPresentation.name,
             presetNameLocalizationKey: presetPresentation.localizationKey,
             providerLocality: defaultProvider?.privacyClass ?? .unresolvedOrChanged,
+            providerDisplay: defaultProviderDisplay.map {
+                ProviderDisplaySummary(
+                    model: $0.model,
+                    readiness: $0.readiness,
+                    locality: $0.privacyClass,
+                    hasCredential: $0.hasCredential
+                )
+            },
             presetOptions: menuPresetOptions(
                 builtIns: builtIns,
                 customPresets: customPresets
@@ -628,6 +644,7 @@ final class ProductionCompositionRoot {
             builtIns: builtIns,
             customPresets: customPresets,
             providers: descriptors,
+            displayProviders: displayDescriptors,
             initialSnapshot: snapshot
         )
         lifecycleRelay.install(presentation: presentationRelay)
@@ -729,7 +746,7 @@ final class ProductionCompositionRoot {
     fileprivate static func configureManualInput(
         _ model: ManualInputViewModel,
         snapshot: PreferencesSnapshot,
-        descriptors: [SanitizedProviderDescriptor],
+        descriptors: [SettingsProviderDescriptor],
         builtIns: [PromptPresetDescriptor],
         customPresets: [CustomPreset],
         preserveCurrentSelection: Bool = false
@@ -768,7 +785,10 @@ final class ProductionCompositionRoot {
                 configurationID: $0.id,
                 label: $0.protocolKind.rawValue,
                 labelKey: $0.protocolKind.localizationKey,
-                locality: $0.privacyClass
+                model: $0.model,
+                locality: $0.privacyClass,
+                hasCredential: $0.hasCredential,
+                isDefault: $0.id == snapshot.defaultProviderID
             )
         }
         model.updateCharacterLimit(snapshot.selectionCharacterLimit)
@@ -937,6 +957,7 @@ private final class ProductionPresentationRelay: @unchecked Sendable {
     private weak var shortcutModel: ShortcutSettingsModel?
     private var builtIns: [PromptPresetDescriptor] = []
     private var providers: [SanitizedProviderDescriptor] = []
+    private var displayProviders: [SettingsProviderDescriptor] = []
     private var customPresets: [CustomPreset] = []
     private var builtInNames: [PresetID: String] = [:]
     private var customNames: [PresetID: String] = [:]
@@ -963,6 +984,7 @@ private final class ProductionPresentationRelay: @unchecked Sendable {
         builtIns: [PromptPresetDescriptor],
         customPresets: [CustomPreset],
         providers: [SanitizedProviderDescriptor],
+        displayProviders: [SettingsProviderDescriptor],
         initialSnapshot: PreferencesSnapshot
     ) {
         self.sceneState = sceneState
@@ -970,6 +992,7 @@ private final class ProductionPresentationRelay: @unchecked Sendable {
         self.shortcutModel = shortcutModel
         self.builtIns = builtIns
         self.providers = providers
+        self.displayProviders = displayProviders
         self.customPresets = customPresets
         latestSnapshot = initialSnapshot
         builtInNames = Dictionary(
@@ -1015,6 +1038,10 @@ private final class ProductionPresentationRelay: @unchecked Sendable {
             providerClasses = Dictionary(
                 uniqueKeysWithValues: providers.map { ($0.id, $0.privacyClass) }
             )
+            self.displayProviders = await ProductionSettingsProviderManager.displayDescriptors(
+                from: providers,
+                management: providerManagement
+            )
         }
         if let customPresets {
             self.customPresets = customPresets
@@ -1026,7 +1053,7 @@ private final class ProductionPresentationRelay: @unchecked Sendable {
             ProductionCompositionRoot.configureManualInput(
                 manualInput,
                 snapshot: snapshot,
-                descriptors: self.providers,
+                descriptors: self.displayProviders,
                 builtIns: builtIns,
                 customPresets: self.customPresets,
                 preserveCurrentSelection: true
@@ -1052,8 +1079,20 @@ private final class ProductionPresentationRelay: @unchecked Sendable {
             sceneState.presetName = name
             sceneState.presetNameLocalizationKey = nil
         }
-        sceneState.providerLocality = snapshot.defaultProviderID
-            .flatMap { providerClasses[$0] } ?? .unresolvedOrChanged
+        if let provider = snapshot.defaultProviderID.flatMap({ id in
+            self.displayProviders.first { $0.id == id }
+        }) {
+            sceneState.providerLocality = provider.privacyClass
+            sceneState.providerDisplay = ProviderDisplaySummary(
+                model: provider.model,
+                readiness: provider.readiness,
+                locality: provider.privacyClass,
+                hasCredential: provider.hasCredential
+            )
+        } else {
+            sceneState.providerLocality = .unresolvedOrChanged
+            sceneState.providerDisplay = nil
+        }
     }
 
     private func updateCaptureState(_ snapshot: PreferencesSnapshot) {

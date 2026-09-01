@@ -442,6 +442,46 @@ final class DefaultProviderServiceTests: XCTestCase {
         }
     }
 
+    func testInspectionRoutesHTTPSHostnameThroughProxyFakeIPAddress() async throws {
+        let id = ProviderConfigurationID()
+        let endpointURL = URL(string: "https://api.kimi.com/coding/v1")!
+        let endpoint = try ProviderOriginParser.parse(endpointURL)
+        let fakeAddress = try IPAddress("198.18.0.20")
+        let snapshot = ProviderDestinationSnapshot.mintAfterResolution(
+            configurationID: id,
+            privacyClass: .cloud,
+            configurationRevision: 1,
+            confirmationRevision: 1,
+            origin: endpoint.origin,
+            resolutionFingerprint: [fakeAddress.fingerprint],
+            protocolKind: .openAICompatible,
+            model: ""
+        )
+        let descriptor = ProviderConfigurationReadDescriptor(
+            id: id,
+            protocolKind: .openAICompatible,
+            endpoint: endpointURL,
+            model: "",
+            hasCredential: true,
+            confirmedClass: .cloud,
+            configurationRevision: 1,
+            confirmationRevision: 1
+        )
+        let compatible = RouterCompatibleSpy()
+        let service = DefaultProviderService(
+            preflight: RouterPreflightStub(.success(snapshot)),
+            access: RouterAccessStub(.success(descriptor)),
+            ollama: RouterOllamaSpy(),
+            compatible: compatible
+        )
+
+        let models = try await service.discoverModels(for: id)
+
+        XCTAssertEqual(models, ["compatible-model"])
+        let counts = await compatible.counts()
+        XCTAssertEqual(counts.1, 1)
+    }
+
     func testCanonicalAddressSelectionAndFactoryComposition() async throws {
         let low = try IPAddress("1.1.1.1")
         let high = try IPAddress("93.184.216.34")

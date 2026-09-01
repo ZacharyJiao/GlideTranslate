@@ -31,20 +31,33 @@ struct ManualProviderOption: Identifiable, Equatable, Sendable {
     let configurationID: ProviderConfigurationID?
     let label: String
     let labelKey: String?
+    let model: String
     let locality: DestinationPrivacyClass
+    let hasCredential: Bool
+    let isDefault: Bool
 
     init(
         id: String,
         configurationID: ProviderConfigurationID?,
         label: String,
         labelKey: String? = nil,
-        locality: DestinationPrivacyClass
+        model: String = "",
+        locality: DestinationPrivacyClass,
+        hasCredential: Bool = false,
+        isDefault: Bool = false
     ) {
         self.id = id
         self.configurationID = configurationID
         self.label = label
         self.labelKey = labelKey
+        self.model = model
         self.locality = locality
+        self.hasCredential = hasCredential
+        self.isDefault = isDefault
+    }
+
+    var readiness: ProviderReadiness {
+        ProviderReadiness.resolve(model: model, privacyClass: locality)
     }
 }
 
@@ -125,6 +138,16 @@ final class ManualInputViewModel {
         characterLimit = limit
     }
 
+    func prepareForOrdinarySession(defaultProviderID: ProviderConfigurationID?) {
+        guard let defaultProviderID else {
+            selectedProviderID = nil
+            return
+        }
+        selectedProviderID = providerOptions.first {
+            $0.configurationID == defaultProviderID
+        }?.id
+    }
+
     func replaceOptions(
         source: [ManualLanguageOption],
         target: [ManualLanguageOption],
@@ -147,7 +170,7 @@ final class ManualInputViewModel {
             ?? presets.first?.id
         selectedProviderID = providers.first(where: {
             $0.configurationID == preferredProviderID
-        })?.id ?? providers.first?.id
+        })?.id
     }
 
     func cancel() {
@@ -196,7 +219,7 @@ final class ManualInputViewModel {
             providerOptions: [
                 .init(
                     id: "default",
-                    configurationID: nil,
+                    configurationID: DevelopmentCompositionFixture.providerID,
                     label: "Default",
                     labelKey: "manual.provider.default",
                     locality: .unresolvedOrChanged
