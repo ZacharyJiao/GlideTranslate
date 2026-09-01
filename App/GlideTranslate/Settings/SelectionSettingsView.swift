@@ -1,3 +1,4 @@
+import SharedSupport
 import SwiftUI
 
 @MainActor
@@ -23,19 +24,7 @@ struct SelectionSettingsView: View {
                     nextAction: nil,
                     systemImage: accessibilityStatusSymbol
                 )
-                HStack {
-                    Button("selection.accessibility.refresh") {
-                        viewModel.refreshAccessibilityStatus()
-                    }
-                    Button("selection.accessibility.openSettings") {
-                        viewModel.openAccessibilitySettings()
-                    }
-                    .accessibilityHint("selection.accessibility.openSettings.hint")
-                    Button("selection.accessibility.enable") {
-                        viewModel.requestAccessibility()
-                    }
-                    .accessibilityHint("selection.accessibility.enable.hint")
-                }
+                HStack(spacing: 8) { accessibilityButtons }
             }
             .accessibilityIdentifier("selection.accessibility")
 
@@ -43,20 +32,20 @@ struct SelectionSettingsView: View {
                 if viewModel.snapshot.generalAutomaticApplications.isEmpty {
                     Text("selection.applications.none")
                 }
-                ForEach(
-                    viewModel.snapshot.generalAutomaticApplications.sorted {
-                        $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
-                    },
-                    id: \.bundleIdentifier
-                ) { application in
-                    HStack {
-                        LabeledContent(application.displayName, value: application.bundleIdentifier)
-                        Button("selection.applications.remove") {
+                if !sortedApplications.isEmpty {
+                    SettingsApplicationGrid(applications: sortedApplications) { application in
+                        Button {
                             viewModel.performOwned {
                                 await $0.removeGeneralApplication(application)
                             }
+                        } label: {
+                            Image(systemName: "trash")
                         }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("selection.applications.remove")
                         .accessibilityHint("selection.applications.remove.hint")
+                        .help("selection.applications.remove")
                     }
                 }
                 Button("selection.applications.add") {
@@ -86,34 +75,32 @@ struct SelectionSettingsView: View {
             }
             .accessibilityIdentifier("selection.applications")
 
-            Toggle("selection.mouse", isOn: mouseEnabled)
-                .accessibilityIdentifier("selection.mouse")
-            Toggle("selection.keyboard", isOn: keyboardEnabled)
-                .accessibilityIdentifier("selection.keyboard")
-            Stepper(
-                value: debounce,
-                in: 100...2_000,
-                step: 50
-            ) {
-                LabeledContent(
-                    "selection.debounce",
-                    value: "\(viewModel.snapshot.selectionDebounceMilliseconds)"
-                )
+            Section {
+                HStack(spacing: 20) {
+                    Toggle("selection.mouse", isOn: mouseEnabled)
+                        .accessibilityIdentifier("selection.mouse")
+                    Toggle("selection.keyboard", isOn: keyboardEnabled)
+                        .accessibilityIdentifier("selection.keyboard")
+                }
+                HStack(spacing: 20) {
+                    compactStepper(
+                        value: viewModel.snapshot.selectionDebounceMilliseconds,
+                        binding: debounce,
+                        range: 100...2_000,
+                        step: 50
+                    ) { Text("selection.debounce") }
+                    .accessibilityValue("\(viewModel.snapshot.selectionDebounceMilliseconds)")
+                    .accessibilityIdentifier("selection.debounce")
+                    compactStepper(
+                        value: viewModel.snapshot.selectionCharacterLimit,
+                        binding: limit,
+                        range: 1...20_000,
+                        step: 100
+                    ) { Text("selection.limit") }
+                    .accessibilityValue("\(viewModel.snapshot.selectionCharacterLimit)")
+                    .accessibilityIdentifier("selection.limit")
+                }
             }
-            .accessibilityValue("\(viewModel.snapshot.selectionDebounceMilliseconds)")
-            .accessibilityIdentifier("selection.debounce")
-            Stepper(
-                value: limit,
-                in: 1...20_000,
-                step: 100
-            ) {
-                LabeledContent(
-                    "selection.limit",
-                    value: "\(viewModel.snapshot.selectionCharacterLimit)"
-                )
-            }
-            .accessibilityValue("\(viewModel.snapshot.selectionCharacterLimit)")
-            .accessibilityIdentifier("selection.limit")
 
             Section("selection.clipboardFallback") {
                 Text("selection.clipboardFallback.disclosure")
@@ -123,6 +110,50 @@ struct SelectionSettingsView: View {
             .accessibilityIdentifier("selection.clipboardFallback")
         }
         .formStyle(.grouped)
+    }
+
+    @ViewBuilder
+    private var accessibilityButtons: some View {
+        Button("selection.accessibility.refresh") {
+            viewModel.refreshAccessibilityStatus()
+        }
+        Button("selection.accessibility.openSettings") {
+            viewModel.openAccessibilitySettings()
+        }
+        .accessibilityHint("selection.accessibility.openSettings.hint")
+        Button("selection.accessibility.enable") {
+            viewModel.requestAccessibility()
+        }
+        .accessibilityHint("selection.accessibility.enable.hint")
+    }
+
+    private var sortedApplications: [ApplicationIdentity] {
+        viewModel.snapshot.generalAutomaticApplications.sorted {
+            $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+        }
+    }
+
+    private func compactStepper<Label: View>(
+        value: Int,
+        binding: Binding<Int>,
+        range: ClosedRange<Int>,
+        step: Int,
+        @ViewBuilder label: () -> Label
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            label()
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            HStack(spacing: 6) {
+                Text(verbatim: "\(value)")
+                    .monospacedDigit()
+                Spacer(minLength: 4)
+                Stepper("", value: binding, in: range, step: step)
+                    .labelsHidden()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var mouseEnabled: Binding<Bool> {

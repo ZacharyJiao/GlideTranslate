@@ -172,7 +172,10 @@ public final class DefaultProviderService:
         }
         guard !addresses.isEmpty,
               Set(addresses.map(\.fingerprint)) == fresh.resolutionFingerprint,
-              DestinationClassifier.classify(Set(addresses)) == fresh.privacyClass,
+              DestinationClassifier.classify(
+                  Set(addresses),
+                  for: endpoint
+              ) == fresh.privacyClass,
               let numericAddress = addresses.sorted(by: {
                   $0.canonicalSortKey.lexicographicallyPrecedes($1.canonicalSortKey)
               }).first else {

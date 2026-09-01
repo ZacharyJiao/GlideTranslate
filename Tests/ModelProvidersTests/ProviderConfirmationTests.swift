@@ -133,6 +133,45 @@ final class ProviderConfirmationTests: XCTestCase {
         }
     }
 
+    func testHTTPSHostnameAcceptsProxyFakeIPAddressAsCloud() async throws {
+        let descriptor = providerDescriptor(
+            endpoint: "https://api.kimi.com/coding/v1",
+            confirmedClass: nil
+        )
+        let service = DefaultProviderConfirmationService(
+            repository: StubProviderRepository(descriptor: descriptor),
+            resolver: try StubAddressResolver(addresses: ["198.18.0.20"]),
+            committer: StubConfirmationCommitter()
+        )
+
+        let challenge = try await service.prepareConfirmation(for: descriptor.id)
+
+        XCTAssertEqual(challenge.proposedClass, .cloud)
+        XCTAssertEqual(challenge.origin.host, "api.kimi.com")
+    }
+
+    func testLiteralProxyFakeIPAddressRemainsUnresolved() async throws {
+        let descriptor = providerDescriptor(
+            endpoint: "https://198.18.0.20/coding/v1",
+            confirmedClass: nil
+        )
+        let service = DefaultProviderConfirmationService(
+            repository: StubProviderRepository(descriptor: descriptor),
+            resolver: try StubAddressResolver(addresses: ["198.18.0.20"]),
+            committer: StubConfirmationCommitter()
+        )
+
+        do {
+            _ = try await service.prepareConfirmation(for: descriptor.id)
+            XCTFail("A literal benchmark address must not be treated as a cloud host")
+        } catch {
+            XCTAssertEqual(
+                error as? SanitizedFailure,
+                .destinationReconfirmationRequired
+            )
+        }
+    }
+
     func testPrepareNeverOffersConfirmationForLoopbackOrUnresolved() async throws {
         let loopback = providerDescriptor(
             endpoint: "http://127.0.0.1:11434",

@@ -10,9 +10,9 @@ fi
 workspace_root="$(cd "$(dirname "$0")/.." && pwd)"
 archive="$1"
 output_root="$2"
-expected_version=0.2.1
-expected_build=2
-artifact_name=GlideTranslate-0.2.1-macos-arm64.dmg
+expected_version=0.2.2
+expected_build=3
+artifact_name=GlideTranslate-0.2.2-macos-arm64.dmg
 approved_bundle_id=com.zaryolabs.GlideTranslate
 inspector="$workspace_root/script/inspect_release_payload.sh"
 entitlements="$workspace_root/App/GlideTranslate/GlideTranslate.entitlements"

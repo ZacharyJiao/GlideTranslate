@@ -87,7 +87,10 @@ extension SettingsSafeError {
         case .selectionEffectUnavailable: "selectionEffectUnavailable"
         case .invalidValue: "invalidValue"
         case .providerUnavailable: "providerUnavailable"
-        case .confirmationChanged: "confirmationChanged"
+        case .missingModel: "missingModel"
+        case .destinationConfirmationRequired: "destinationConfirmationRequired"
+        case .credentialRejected: "credentialRejected"
+        case .providerFailure: "providerFailure"
         case .promptUnavailable: "promptUnavailable"
         case .promptReplacementRequired: "promptReplacementRequired"
         case .historyUnavailable: "historyUnavailable"
@@ -297,6 +300,12 @@ extension DestinationPrivacyClass {
         case .cloud: "locality.cloud"
         case .unresolvedOrChanged: "locality.unresolved"
         }
+    }
+}
+
+extension ProviderReadiness {
+    var localizationKey: String {
+        "provider.readiness.\(rawValue)"
     }
 }
 

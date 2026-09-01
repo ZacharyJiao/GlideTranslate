@@ -302,6 +302,10 @@ final class AppCoordinator {
                 manualCharacterLimit: prepared.manualCharacterLimit,
                 claim: claim
             )
+        } catch let failure as SanitizedFailure where failure != .cancelled {
+            feedbackPresenter.presentSafeNextAction(
+                failure.safeNextActionPresentation
+            )
         } catch {
             return
         }

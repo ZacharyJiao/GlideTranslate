@@ -9,6 +9,113 @@ import XCTest
 
 @MainActor
 final class SettingsEffectsTests: XCTestCase {
+    func testAboutVersionOmitsInternalBuildNumber() {
+        XCTAssertEqual(
+            AboutSettingsView.displayVersion(shortVersion: "0.2.2", build: "3"),
+            "0.2.2"
+        )
+    }
+
+    func testSettingsBrandHeaderExposesTheAppIdentityAtSidebarScale() {
+        let host = NSHostingView(rootView: SettingsBrandHeader())
+        host.frame = NSRect(x: 0, y: 0, width: 200, height: 90)
+        host.layoutSubtreeIfNeeded()
+
+        XCTAssertGreaterThanOrEqual(host.fittingSize.height, 88)
+        XCTAssertGreaterThan(host.fittingSize.width, 120)
+    }
+
+    func testSettingsSidebarUsesBrandSurfaceAndHighContrastSelection() async {
+        let host = NSHostingView(rootView: SettingsSidebar(selectedSection: .constant(.general)))
+        host.frame = NSRect(x: 0, y: 0, width: 216, height: 640)
+        let window = hostingWindow(for: host)
+        await settleRendering(in: window, host: host)
+
+        let bitmap = try! XCTUnwrap(renderedBitmap(of: host, in: host.bounds))
+        let counts = brandedSidebarPixelCounts(in: bitmap)
+        let pixelCount = bitmap.pixelsWide * bitmap.pixelsHigh
+
+        XCTAssertGreaterThan(
+            counts.paleEmerald,
+            pixelCount / 3,
+            "The pale brand surface should cover the full sidebar, not only the header"
+        )
+        XCTAssertGreaterThan(
+            counts.solidEmerald,
+            1_200,
+            "The selected row should render as a solid emerald area"
+        )
+        window.orderOut(nil)
+        window.contentView = nil
+    }
+
+    func testDefaultProviderIndicatorUsesBrandColor() {
+        let host = NSHostingView(rootView: ProviderDefaultIndicator(isDefault: true))
+        host.frame = NSRect(x: 0, y: 0, width: 32, height: 32)
+        host.layoutSubtreeIfNeeded()
+
+        let bitmap = try! XCTUnwrap(renderedBitmap(of: host, in: host.bounds))
+        let counts = brandedSidebarPixelCounts(in: bitmap)
+
+        XCTAssertGreaterThan(
+            counts.solidEmerald,
+            20,
+            "The active model checkmark should use the emerald brand color"
+        )
+    }
+
+    func testModelsKeepTwoPaneStructureAtNarrowSettingsWidth() {
+        let fixture = Fixture()
+        let host = NSHostingView(rootView: ModelsSettingsView(viewModel: fixture.model))
+        host.frame = NSRect(x: 0, y: 0, width: 560, height: 560)
+        host.layoutSubtreeIfNeeded()
+
+        XCTAssertNotNil(
+            firstDescendant(of: NSSplitView.self, in: host),
+            "The provider list and connection editor must stay side by side"
+        )
+    }
+
+    func testModelsOpenWithTheDefaultProviderSelected() async {
+        let providerID = ProviderConfigurationID()
+        let provider = SettingsProviderDescriptor(
+            id: providerID,
+            protocolKind: .openAICompatible,
+            model: "current-model",
+            privacyClass: .cloud,
+            hasCredential: true
+        )
+        let fixture = Fixture(initialProviders: [provider])
+        let host = NSHostingView(rootView: ModelsSettingsView(viewModel: fixture.model))
+        host.frame = NSRect(x: 0, y: 0, width: 700, height: 560)
+        let window = hostingWindow(for: host)
+
+        await settleRendering(in: window, host: host)
+        for _ in 0..<20 where fixture.model.selectedProvider == nil {
+            try? await Task.sleep(for: .milliseconds(10))
+            host.layoutSubtreeIfNeeded()
+        }
+
+        XCTAssertEqual(fixture.model.selectedProvider?.id, providerID)
+        window.orderOut(nil)
+        window.contentView = nil
+    }
+
+    func testApplicationCardsUseMultipleColumnsWhenSpaceIsAvailable() {
+        XCTAssertEqual(
+            SettingsApplicationGridLayout.columnCount(availableWidth: 700),
+            3
+        )
+        XCTAssertEqual(
+            SettingsApplicationGridLayout.columnCount(availableWidth: 420),
+            2
+        )
+        XCTAssertEqual(
+            SettingsApplicationGridLayout.columnCount(availableWidth: 230),
+            1
+        )
+    }
+
     private enum Effect: Equatable {
         case preferencesWrite
         case shortcutRegister
@@ -44,7 +151,6 @@ final class SettingsEffectsTests: XCTestCase {
         let host = NSHostingView(rootView: SettingsRootView(viewModel: fixture.model))
         host.frame = NSRect(x: 0, y: 0, width: 1_000, height: 640)
         let window = hostingWindow(for: host)
-        defer { window.close() }
         await settleRendering(in: window, host: host)
         let chineseSidebar = try! XCTUnwrap(sidebarRendering(of: host))
 
@@ -53,6 +159,8 @@ final class SettingsEffectsTests: XCTestCase {
         let updatedSidebar = try! XCTUnwrap(sidebarRendering(of: host))
 
         XCTAssertNotEqual(updatedSidebar, chineseSidebar)
+        window.orderOut(nil)
+        window.contentView = nil
     }
 
     func testRenderingAllSectionsHasNoEffect() {
@@ -574,10 +682,74 @@ final class SettingsEffectsTests: XCTestCase {
         XCTAssertEqual(fixture.provider.updatedIDs, Array(repeating: fixture.provider.id, count: 3))
         XCTAssertEqual(fixture.provider.credentialChanges, [.preserve, .remove, .replace])
         XCTAssertEqual(fixture.recorder.effects, [
-            .vaultCreate, .resolve,
-            .vaultUpdate, .resolve,
-            .vaultUpdate, .resolve,
-            .vaultUpdate, .resolve,
+            .vaultCreate, .resolve, .confirm, .authorizationDelete,
+            .vaultUpdate, .resolve, .confirm, .authorizationDelete,
+            .vaultUpdate, .resolve, .confirm, .authorizationDelete,
+            .vaultUpdate, .resolve, .confirm, .authorizationDelete,
+        ])
+    }
+
+    func testConnectingProviderPersistsConfirmsAndLoadsModelsWithoutLosingSelection() async {
+        let fixture = Fixture()
+        fixture.model.setCredentialInput("synthetic-secret")
+
+        await fixture.model.connectProvider(
+            id: nil,
+            draft: SettingsProviderDraft(
+                protocolKind: .openAICompatible,
+                endpoint: URL(string: "https://example.invalid/v1")!,
+                model: ""
+            ),
+            credentialDisposition: .replace
+        )
+
+        XCTAssertEqual(fixture.model.selectedProvider?.id, fixture.provider.id)
+        XCTAssertEqual(fixture.model.discoveredModels, ["synthetic-model"])
+        XCTAssertFalse(fixture.model.providerConnectionInFlight)
+        XCTAssertNil(fixture.model.safeError)
+        XCTAssertEqual(fixture.recorder.effects, [
+            .vaultCreate,
+            .resolve, .confirm, .authorizationDelete,
+            .resolve, .getTags,
+        ])
+    }
+
+    func testFailedInternalConnectionCheckKeepsProviderSelectedForRetry() async {
+        let fixture = Fixture()
+        fixture.confirmation.changedOnConfirm = true
+
+        await fixture.model.connectProvider(
+            id: fixture.provider.id,
+            draft: fixture.cloudDraft,
+            credentialDisposition: .preserve
+        )
+
+        XCTAssertEqual(fixture.model.activeProviderID, fixture.provider.id)
+        XCTAssertEqual(fixture.model.selectedProvider?.id, fixture.provider.id)
+        XCTAssertEqual(fixture.model.safeError, .destinationConfirmationRequired)
+        XCTAssertFalse(fixture.model.providerConnectionInFlight)
+        XCTAssertEqual(fixture.recorder.effects, [.vaultUpdate, .resolve])
+    }
+
+    func testSelectingDiscoveredModelPersistsConfirmsAndMakesItDefault() async {
+        let fixture = Fixture()
+        fixture.preferences.value.defaultProviderID = nil
+
+        await fixture.model.activateProviderModel(
+            fixture.provider.id,
+            model: "selected-model"
+        )
+
+        XCTAssertEqual(fixture.provider.updatedDrafts.last?.model, "selected-model")
+        XCTAssertEqual(fixture.provider.credentialChanges.last, .preserve)
+        XCTAssertEqual(fixture.model.snapshot.defaultProviderID, fixture.provider.id)
+        XCTAssertEqual(fixture.model.selectedProvider?.id, fixture.provider.id)
+        XCTAssertFalse(fixture.model.providerActivationInFlight)
+        XCTAssertNil(fixture.model.safeError)
+        XCTAssertEqual(fixture.recorder.effects, [
+            .vaultUpdate,
+            .resolve, .confirm, .authorizationDelete,
+            .preferencesWrite,
         ])
     }
 
@@ -594,9 +766,128 @@ final class SettingsEffectsTests: XCTestCase {
         XCTAssertEqual(fixture.model.providers, [initial])
     }
 
+    func testDefaultProviderSummaryCarriesModelReadinessAndCredentialState() {
+        let providerID = ProviderConfigurationID()
+        let initial = SettingsProviderDescriptor(
+            id: providerID,
+            protocolKind: .openAICompatible,
+            model: "k3",
+            privacyClass: .unresolvedOrChanged,
+            hasCredential: true
+        )
+        let fixture = Fixture(initialProviders: [initial])
+
+        XCTAssertEqual(fixture.model.defaultProviderDescriptor?.id, providerID)
+        XCTAssertEqual(fixture.model.defaultProviderDescriptor?.model, "k3")
+        XCTAssertEqual(
+            fixture.model.defaultProviderDescriptor?.readiness,
+            .destinationConfirmationRequired
+        )
+        XCTAssertTrue(fixture.model.defaultProviderDescriptor?.hasCredential == true)
+    }
+
+    func testCredentialActionsDistinguishNewAndExistingProviderForms() {
+        XCTAssertEqual(
+            SettingsCredentialDisposition.availableCases(hasExistingCredential: false),
+            []
+        )
+        XCTAssertEqual(
+            SettingsCredentialDisposition.availableCases(hasExistingCredential: true),
+            [.preserve, .remove, .replace]
+        )
+    }
+
+    func testCredentialDraftIsScopedToProviderAndNewForm() async {
+        let fixture = Fixture()
+
+        await fixture.model.selectProvider(fixture.provider.id)
+        fixture.model.setCredentialInput("credential-a")
+        XCTAssertEqual(fixture.model.credentialDraft, "credential-a")
+
+        await fixture.model.selectProvider(fixture.provider.secondID)
+        XCTAssertEqual(fixture.model.credentialDraft, "")
+
+        fixture.model.setCredentialInput("credential-b")
+        fixture.model.beginNewProviderCredentialDraft()
+        XCTAssertEqual(fixture.model.credentialDraft, "")
+        XCTAssertTrue(fixture.model.credentialFieldIsEmpty)
+    }
+
+    func testCredentialDraftDoesNotReplaceDisplayedActionBeforeSubmission() async {
+        let fixture = Fixture()
+        await fixture.model.selectProvider(fixture.provider.id)
+        fixture.model.setCredentialInput("replacement-secret")
+
+        await fixture.model.saveProvider(
+            id: fixture.provider.id,
+            draft: fixture.cloudDraft,
+            credentialDisposition: .replace
+        )
+
+        XCTAssertEqual(fixture.provider.credentialChanges.last, .replace)
+        XCTAssertEqual(fixture.model.credentialDraft, "")
+    }
+
+    func testSuspendedProviderSaveCannotEraseSwitchedProviderDraft() async {
+        let fixture = Fixture()
+        let suspension = MutationSuspension()
+        fixture.provider.mutationSuspension = suspension
+
+        await fixture.model.selectProvider(fixture.provider.id)
+        fixture.model.setCredentialInput("credential-a")
+        let save = Task { @MainActor in
+            await fixture.model.saveProvider(
+                id: fixture.provider.id,
+                draft: fixture.cloudDraft,
+                credentialDisposition: .replace
+            )
+        }
+        await suspension.waitUntilStarted()
+
+        await fixture.model.selectProvider(fixture.provider.secondID)
+        fixture.model.setCredentialInput("credential-b")
+        XCTAssertEqual(fixture.model.credentialDraft, "credential-b")
+
+        await suspension.resume()
+        await save.value
+
+        XCTAssertEqual(fixture.model.credentialDraft, "credential-b")
+        fixture.model.setCredentialInput("credential-b-updated")
+        XCTAssertEqual(fixture.model.credentialDraft, "credential-b-updated")
+    }
+
+    func testSuspendedProviderSaveCannotEraseNewProviderDraft() async {
+        let fixture = Fixture()
+        let suspension = MutationSuspension()
+        fixture.provider.mutationSuspension = suspension
+
+        await fixture.model.selectProvider(fixture.provider.id)
+        fixture.model.setCredentialInput("credential-a")
+        let save = Task { @MainActor in
+            await fixture.model.saveProvider(
+                id: fixture.provider.id,
+                draft: fixture.cloudDraft,
+                credentialDisposition: .replace
+            )
+        }
+        await suspension.waitUntilStarted()
+
+        fixture.model.beginNewProviderCredentialDraft()
+        fixture.model.setCredentialInput("new-credential")
+        XCTAssertEqual(fixture.model.credentialDraft, "new-credential")
+
+        await suspension.resume()
+        await save.value
+
+        XCTAssertEqual(fixture.model.credentialDraft, "new-credential")
+        fixture.model.setCredentialInput("new-credential-updated")
+        XCTAssertEqual(fixture.model.credentialDraft, "new-credential-updated")
+    }
+
     func testProviderSaveFailureKeepsStableVisibleStateAndCredentialChoiceExplicit() async {
         let fixture = Fixture()
         fixture.provider.failNextMutation = true
+        await fixture.model.selectProvider(fixture.provider.id)
         fixture.model.setCredentialInput("synthetic-secret")
         await fixture.model.saveProvider(
             id: fixture.provider.id,
@@ -606,75 +897,6 @@ final class SettingsEffectsTests: XCTestCase {
         XCTAssertTrue(fixture.model.providers.isEmpty)
         XCTAssertEqual(fixture.model.safeError, .providerUnavailable)
         XCTAssertFalse(fixture.model.credentialFieldIsEmpty)
-    }
-
-    func testDestinationConfirmationRequiresPreviewAndChangedChallengeCannotWrite() async {
-        let fixture = Fixture()
-        let descriptor = fixture.provider.descriptor
-
-        await fixture.model.prepareConfirmation(for: descriptor)
-        XCTAssertNotNil(fixture.model.confirmationPreview)
-        XCTAssertEqual(fixture.recorder.effects, [.resolve])
-
-        await fixture.model.confirmDestination()
-        XCTAssertNil(fixture.model.confirmationPreview)
-        XCTAssertEqual(fixture.recorder.effects, [.resolve, .confirm, .authorizationDelete])
-
-        fixture.recorder.reset()
-        fixture.confirmation.changedOnConfirm = true
-        await fixture.model.prepareConfirmation(for: descriptor)
-        await fixture.model.confirmDestination()
-        XCTAssertEqual(fixture.recorder.effects, [.resolve])
-        XCTAssertEqual(fixture.model.safeError, .confirmationChanged)
-        XCTAssertNil(fixture.model.confirmationPreview)
-    }
-
-    func testUnresolvedSavedProviderHasExplicitPrepareRouteAndProviderSwitchClearsScopedState() async {
-        let fixture = Fixture()
-        await fixture.model.saveProvider(
-            id: nil,
-            draft: fixture.cloudDraft,
-            credentialDisposition: .preserve
-        )
-        let unresolved = try! XCTUnwrap(fixture.model.providers.first)
-        XCTAssertEqual(unresolved.privacyClass, .unresolvedOrChanged)
-        XCTAssertTrue(ModelsSettingsView.canPrepareConfirmation(for: unresolved))
-        _ = NSHostingView(rootView: ModelsSettingsView(viewModel: fixture.model))
-        XCTAssertEqual(fixture.model.confirmationPreview?.configurationID, unresolved.id)
-
-        let allowed = ApplicationIdentity(bundleIdentifier: "example.allowed", displayName: "Allowed")
-        fixture.preferences.value.generalAutomaticApplications = [allowed]
-        fixture.provider.applications = [allowed]
-        await fixture.model.loadAutomaticApplications(for: unresolved.id)
-        XCTAssertEqual(fixture.model.automaticApplicationsProviderID, unresolved.id)
-
-        await fixture.model.saveProvider(
-            id: unresolved.id,
-            draft: fixture.cloudDraft,
-            credentialDisposition: .preserve
-        )
-        XCTAssertEqual(fixture.model.confirmationPreview?.configurationID, unresolved.id)
-        XCTAssertTrue(fixture.model.discoveredModels.isEmpty)
-        XCTAssertTrue(fixture.model.automaticApplications.isEmpty)
-        XCTAssertNil(fixture.model.automaticApplicationsProviderID)
-        XCTAssertEqual(fixture.model.selectedProvider?.id, unresolved.id)
-        XCTAssertEqual(fixture.model.selectedProvider?.endpoint, fixture.cloudDraft.endpoint)
-        XCTAssertEqual(fixture.model.selectedProvider?.model, fixture.cloudDraft.model)
-        XCTAssertNil(fixture.model.safeError)
-
-        await fixture.model.prepareConfirmation(for: unresolved)
-        await fixture.model.loadAutomaticApplications(for: unresolved.id)
-
-        await fixture.model.selectProvider(fixture.provider.secondID)
-        _ = NSHostingView(rootView: ModelsSettingsView(viewModel: fixture.model))
-        XCTAssertNil(fixture.model.confirmationPreview)
-        XCTAssertTrue(fixture.model.automaticApplications.isEmpty)
-        XCTAssertNil(fixture.model.automaticApplicationsProviderID)
-        fixture.recorder.reset()
-
-        await fixture.model.confirmDestination()
-        XCTAssertEqual(fixture.recorder.effects, [])
-        XCTAssertEqual(fixture.model.safeError, .confirmationChanged)
     }
 
     func testDiscoveryResultsRemainUserSelectableAndDeleteClearsSelection() async {
@@ -784,12 +1006,43 @@ final class SettingsEffectsTests: XCTestCase {
     }
 
     private func sidebarRendering(of host: NSView) -> Data? {
-        let sidebarRect = NSRect(x: 0, y: 0, width: 300, height: host.bounds.height)
-        guard let representation = host.bitmapImageRepForCachingDisplay(in: sidebarRect) else {
+        sidebarBitmap(of: host)?.representation(using: .png, properties: [:])
+    }
+
+    private func sidebarBitmap(of host: NSView) -> NSBitmapImageRep? {
+        let sidebarRect = NSRect(x: 0, y: 0, width: 216, height: host.bounds.height)
+        return renderedBitmap(of: host, in: sidebarRect)
+    }
+
+    private func renderedBitmap(of host: NSView, in rect: NSRect) -> NSBitmapImageRep? {
+        guard let bitmap = host.bitmapImageRepForCachingDisplay(in: rect) else {
             return nil
         }
-        host.cacheDisplay(in: sidebarRect, to: representation)
-        return representation.representation(using: .png, properties: [:])
+        host.cacheDisplay(in: rect, to: bitmap)
+        return bitmap
+    }
+
+    private func brandedSidebarPixelCounts(
+        in bitmap: NSBitmapImageRep
+    ) -> (paleEmerald: Int, solidEmerald: Int) {
+        var paleEmerald = 0
+        var solidEmerald = 0
+        for y in 0 ..< bitmap.pixelsHigh {
+            for x in 0 ..< bitmap.pixelsWide {
+                guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else {
+                    continue
+                }
+                let hasEmeraldHue = color.greenComponent > color.redComponent + 0.15
+                    && color.greenComponent > color.blueComponent + 0.10
+                if hasEmeraldHue, color.alphaComponent < 0.3 {
+                    paleEmerald += 1
+                }
+                if hasEmeraldHue, color.alphaComponent > 0.8 {
+                    solidEmerald += 1
+                }
+            }
+        }
+        return (paleEmerald, solidEmerald)
     }
 
     private func hostingWindow(for host: NSView) -> NSWindow {
@@ -848,6 +1101,9 @@ final class SettingsEffectsTests: XCTestCase {
             let providerID = ProviderConfigurationID()
             var initialSnapshot = PreferencesSnapshot.appFixture(providerID: providerID)
             initialSnapshot.uiLanguage = initialUILanguage
+            if let initialProvider = initialProviders.first {
+                initialSnapshot.defaultProviderID = initialProvider.id
+            }
             preferences = Preferences(
                 value: initialSnapshot,
                 recorder: recorder
@@ -1013,6 +1269,30 @@ final class SettingsEffectsTests: XCTestCase {
         }
     }
 
+    private actor MutationSuspension {
+        private var started = false
+        private var startedWaiters: [CheckedContinuation<Void, Never>] = []
+        private var continuation: CheckedContinuation<Void, Never>?
+
+        func suspend() async {
+            started = true
+            let waiters = startedWaiters
+            startedWaiters.removeAll()
+            waiters.forEach { $0.resume() }
+            await withCheckedContinuation { continuation = $0 }
+        }
+
+        func waitUntilStarted() async {
+            if started { return }
+            await withCheckedContinuation { startedWaiters.append($0) }
+        }
+
+        func resume() {
+            continuation?.resume()
+            continuation = nil
+        }
+    }
+
     @MainActor
     private final class ShortcutPublicationProbe {
         weak var shortcut: ShortcutSettingsModel?
@@ -1090,10 +1370,12 @@ final class SettingsEffectsTests: XCTestCase {
         let recorder: Recorder
         var applications: Set<ApplicationIdentity> = []
         var updatedIDs: [ProviderConfigurationID] = []
+        var updatedDrafts: [SettingsProviderDraft] = []
         var credentialChanges: [SettingsCredentialDisposition] = []
         var createHadCredential: [Bool] = []
         var failNextMutation = false
         var failApplicationWrite = false
+        var mutationSuspension: MutationSuspension?
 
         var descriptor: SettingsProviderDescriptor {
             SettingsProviderDescriptor(
@@ -1152,10 +1434,14 @@ final class SettingsEffectsTests: XCTestCase {
         ) async throws -> SettingsProviderDescriptor {
             recorder.append(.vaultUpdate)
             updatedIDs.append(id)
+            updatedDrafts.append(draft)
             switch consume credential {
             case .preserve: credentialChanges.append(.preserve)
             case .remove: credentialChanges.append(.remove)
             case .replace: credentialChanges.append(.replace)
+            }
+            if let mutationSuspension {
+                await mutationSuspension.suspend()
             }
             if failNextMutation {
                 failNextMutation = false

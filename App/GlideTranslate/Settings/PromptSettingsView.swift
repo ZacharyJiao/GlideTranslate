@@ -40,115 +40,157 @@ struct PromptSettingsView: View {
 
     var body: some View {
         HSplitView {
-            VStack(spacing: 0) {
-                List(selection: $selectedPresetID) {
-                    Section("prompts.builtIns") {
-                        ForEach(viewModel.builtInPrompts) { preset in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(LocalizedStringKey(preset.nameLocalizationKey))
-                                Text(LocalizedStringKey(preset.explanationLocalizationKey))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                            .tag(Optional(preset.id))
+            promptList
+            promptForm
+                .frame(minWidth: 280)
+        }
+        .task {
+            await viewModel.performOwnedAndWait { await $0.loadPromptPresets() }
+            if selectedPresetID == nil {
+                selectedPresetID = viewModel.builtInPrompts.first?.id
+                    ?? viewModel.customPrompts.first?.id
+            }
+        }
+        .task(id: selectedPresetID) {
+            guard let selectedPresetID else { return }
+            await viewModel.performOwnedAndWait {
+                await $0.previewPrompt(selectedPresetID)
+            }
+        }
+        .sheet(isPresented: $editorPresented) {
+            PromptEditorView(viewModel: viewModel, isPresented: $editorPresented)
+                .frame(
+                    minWidth: 560,
+                    idealWidth: 640,
+                    minHeight: 500,
+                    idealHeight: 540
+                )
+        }
+    }
+
+    private var promptList: some View {
+        VStack(spacing: 0) {
+            List(selection: $selectedPresetID) {
+                Section("prompts.builtIns") {
+                    ForEach(viewModel.builtInPrompts) { preset in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(LocalizedStringKey(preset.nameLocalizationKey))
+                            Text(LocalizedStringKey(preset.explanationLocalizationKey))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
+                        .tag(Optional(preset.id))
                     }
-                    .accessibilityIdentifier("prompts.builtIns")
-                    Section("prompts.custom") {
-                        ForEach(viewModel.customPrompts) { preset in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(preset.name)
-                                Text(preset.explanation)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                            .tag(Optional(preset.id))
-                        }
-                    }
-                    .accessibilityIdentifier("prompts.custom")
                 }
-                HStack {
+                .accessibilityIdentifier("prompts.builtIns")
+                Section("prompts.custom") {
+                    ForEach(viewModel.customPrompts) { preset in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(preset.name)
+                            Text(preset.explanation)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        .tag(Optional(preset.id))
+                    }
+                }
+                .accessibilityIdentifier("prompts.custom")
+            }
+            HStack {
                 Button("prompts.new") {
                     viewModel.beginNewPrompt()
                     editorPresented = true
                 }
                 .disabled(viewModel.promptMutationInFlight)
-                    Spacer()
-                }
-                .padding(8)
+                Spacer()
             }
-            .frame(minWidth: 190, idealWidth: 210, maxWidth: 230)
+            .padding(8)
+        }
+        .frame(
+            minWidth: 170,
+            idealWidth: 190,
+            maxWidth: 220
+        )
+    }
 
-            Form {
-                if let builtIn = selectedBuiltIn {
-                    Section {
-                        Text(LocalizedStringKey(builtIn.explanationLocalizationKey))
-                            .foregroundStyle(.secondary)
-                        HStack {
-                            Button("prompts.duplicate") {
-                                viewModel.performOwned { model in
-                                    await model.duplicateBuiltInPrompt(builtIn.id)
-                                    editorPresented = model.promptDraft != nil
-                                }
+    private var promptForm: some View {
+        Form {
+            if let builtIn = selectedBuiltIn {
+                Section {
+                    Text(LocalizedStringKey(builtIn.explanationLocalizationKey))
+                        .foregroundStyle(.secondary)
+                    promptActions {
+                        Button("prompts.duplicate") {
+                            viewModel.performOwned { model in
+                                await model.duplicateBuiltInPrompt(builtIn.id)
+                                editorPresented = model.promptDraft != nil
                             }
-                            .disabled(viewModel.promptMutationInFlight)
-                            Button("prompts.preview") {
-                                viewModel.performOwned { await $0.previewPrompt(builtIn.id) }
-                            }
-                            Button("prompts.setDefault") {
-                                viewModel.performOwned { await $0.setDefaultPreset(builtIn.id) }
-                            }
-                            .disabled(viewModel.promptMutationInFlight)
                         }
-                    } header: {
-                        Text(LocalizedStringKey(builtIn.nameLocalizationKey))
-                    }
-                } else if let custom = selectedCustom {
-                    Section(custom.name) {
-                        Text(custom.explanation)
-                            .foregroundStyle(.secondary)
-                        HStack {
-                            Button("prompts.edit") {
-                                viewModel.editCustomPrompt(custom)
-                                editorPresented = true
-                            }
-                            Button("prompts.preview") {
-                                viewModel.performOwned { await $0.previewPrompt(custom.id) }
-                            }
-                            Button("prompts.setDefault") {
-                                viewModel.performOwned { await $0.setDefaultPreset(custom.id) }
-                            }
-                            Button("prompts.delete", role: .destructive) {
-                                viewModel.performOwned { await $0.deletePrompt(custom.id) }
-                            }
-                            .accessibilityHint("prompts.delete.hint")
+                        .disabled(viewModel.promptMutationInFlight)
+                        Button("prompts.setDefault") {
+                            viewModel.performOwned { await $0.setDefaultPreset(builtIn.id) }
                         }
                         .disabled(viewModel.promptMutationInFlight)
                     }
-                } else {
-                    ContentUnavailableView(
-                        "prompts.selection.empty",
-                        systemImage: "text.quote"
-                    )
+                } header: {
+                    Text(LocalizedStringKey(builtIn.nameLocalizationKey))
                 }
+            } else if let custom = selectedCustom {
+                Section(custom.name) {
+                    Text(custom.explanation)
+                        .foregroundStyle(.secondary)
+                    promptActions {
+                        Button("prompts.edit") {
+                            viewModel.editCustomPrompt(custom)
+                            editorPresented = true
+                        }
+                        Button("prompts.setDefault") {
+                            viewModel.performOwned { await $0.setDefaultPreset(custom.id) }
+                        }
+                        Button("prompts.delete", role: .destructive) {
+                            viewModel.performOwned { await $0.deletePrompt(custom.id) }
+                        }
+                        .accessibilityHint("prompts.delete.hint")
+                    }
+                    .disabled(viewModel.promptMutationInFlight)
+                }
+            } else {
+                ContentUnavailableView(
+                    "prompts.selection.empty",
+                    systemImage: "text.quote"
+                )
+            }
 
-                if let preview = viewModel.promptPreview {
-                Section("prompts.preview") {
-                    Text("prompts.preview.untrustedExplanation")
-                    LabeledContent("prompts.preview.instruction", value: preview.instruction)
-                    LabeledContent(
-                        "prompts.preview.sampleUserContent",
-                        value: preview.sampleUserContent
-                    )
+            if let preview = viewModel.promptPreview {
+                Section("prompts.request.title") {
+                    Text("prompts.request.explanation")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("prompts.request.systemMessage")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text(verbatim: preview.instruction)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.vertical, 4)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("prompts.request.userMessage")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text(verbatim: preview.userContentTemplate)
+                            .font(.body.monospaced())
+                            .textSelection(.enabled)
+                    }
+                    .padding(.vertical, 4)
                 }
                 .accessibilityIdentifier("prompts.preview")
-                } else {
-                    Color.clear.frame(height: 0).accessibilityIdentifier("prompts.preview")
-                }
+            }
 
-                if let deleting = viewModel.promptReplacementRequiredID {
+            if let deleting = viewModel.promptReplacementRequiredID {
                 Section("prompts.deleteDefault.replacement") {
                     Picker("prompts.default", selection: $replacementID) {
                         Text("prompts.default.choose").tag(PresetID?.none)
@@ -165,27 +207,18 @@ struct PromptSettingsView: View {
                     .accessibilityHint("prompts.deleteDefault.confirm.hint")
                     .disabled(replacementID == nil || viewModel.promptMutationInFlight)
                 }
-                }
-                Color.clear.frame(height: 0).accessibilityIdentifier("prompts.default")
-            }
-            .formStyle(.grouped)
-            .frame(minWidth: 360)
-        }
-        .task {
-            await viewModel.performOwnedAndWait { await $0.loadPromptPresets() }
-            if selectedPresetID == nil {
-                selectedPresetID = viewModel.builtInPrompts.first?.id
-                    ?? viewModel.customPrompts.first?.id
             }
         }
-        .sheet(isPresented: $editorPresented) {
-            PromptEditorView(viewModel: viewModel, isPresented: $editorPresented)
-                .frame(
-                    minWidth: 560,
-                    idealWidth: 640,
-                    minHeight: 500,
-                    idealHeight: 540
-                )
+        .formStyle(.grouped)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func promptActions<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) { content() }
+            VStack(alignment: .leading, spacing: 8) { content() }
         }
     }
 

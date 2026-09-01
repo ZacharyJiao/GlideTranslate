@@ -55,6 +55,9 @@ struct ResultPanelView: View {
                             offsetFromBottom: offset,
                             userInitiated: userInitiated
                         )
+                    },
+                    onUserScrollIntent: { [weak model] in
+                        model?.userDidBeginScrolling()
                     }
                 )
                 .frame(maxWidth: .infinity, minHeight: 28, maxHeight: .infinity)
@@ -277,20 +280,44 @@ struct ResultPanelView: View {
     }
 }
 
+@MainActor
+final class ResultPanelIntentAwareScroller: NSScroller {
+    var onUserScrollIntent: (@MainActor @Sendable () -> Void)?
+
+    func beginUserScroll() {
+        onUserScrollIntent?()
+    }
+
+    override func trackKnob(with event: NSEvent) {
+        beginUserScroll()
+        super.trackKnob(with: event)
+    }
+}
+
 private struct SafeRenderedOutput: NSViewRepresentable {
     let text: String
     let followsLatest: Bool
     let latestScrollRequest: Int
     let onMetrics:
         (@MainActor @Sendable (CGFloat, CGFloat, CGFloat, Bool) -> Void)?
+    let onUserScrollIntent: (@MainActor @Sendable () -> Void)?
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onMetrics: onMetrics)
+        Coordinator(
+            onMetrics: onMetrics,
+            onUserScrollIntent: onUserScrollIntent
+        )
     }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
+        let scrollView = IntentAwareScrollView()
         scrollView.hasVerticalScroller = true
+        scrollView.onUserScrollIntent = onUserScrollIntent
+        let scroller = ResultPanelIntentAwareScroller(frame: .zero)
+        scroller.onUserScrollIntent = { [weak scrollView] in
+            scrollView?.notifyUserScrollIntent()
+        }
+        scrollView.verticalScroller = scroller
         scrollView.drawsBackground = false
         scrollView.contentView.postsBoundsChangedNotifications = true
 
@@ -318,6 +345,8 @@ private struct SafeRenderedOutput: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         context.coordinator.onMetrics = onMetrics
+        context.coordinator.onUserScrollIntent = onUserScrollIntent
+        (scrollView as? IntentAwareScrollView)?.onUserScrollIntent = onUserScrollIntent
         updateText(in: scrollView)
         context.coordinator.scrollToLatestIfRequested(latestScrollRequest)
         context.coordinator.reportMetrics(userInitiated: false)
@@ -360,14 +389,17 @@ private struct SafeRenderedOutput: NSViewRepresentable {
         weak var scrollView: NSScrollView?
         var onMetrics:
             (@MainActor @Sendable (CGFloat, CGFloat, CGFloat, Bool) -> Void)?
+        var onUserScrollIntent: (@MainActor @Sendable () -> Void)?
         private var boundsObserver: NSObjectProtocol?
         private var lastScrollRequest = 0
 
         init(
             onMetrics:
-                (@MainActor @Sendable (CGFloat, CGFloat, CGFloat, Bool) -> Void)?
+                (@MainActor @Sendable (CGFloat, CGFloat, CGFloat, Bool) -> Void)?,
+            onUserScrollIntent: (@MainActor @Sendable () -> Void)?
         ) {
             self.onMetrics = onMetrics
+            self.onUserScrollIntent = onUserScrollIntent
         }
 
         func installBoundsObserver() {
@@ -378,9 +410,21 @@ private struct SafeRenderedOutput: NSViewRepresentable {
                 queue: .main
             ) { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    self?.reportMetrics(userInitiated: true)
+                    guard let self else { return }
+                    self.reportMetrics(
+                        userInitiated: self.consumeUserScrollIntent()
+                    )
                 }
             }
+        }
+
+        private func consumeUserScrollIntent() -> Bool {
+            guard let scrollView = scrollView as? IntentAwareScrollView else {
+                return false
+            }
+            let userInitiated = scrollView.userScrollPending
+            scrollView.userScrollPending = false
+            return userInitiated
         }
 
         func reportMetrics(userInitiated: Bool) {
@@ -412,6 +456,22 @@ private struct SafeRenderedOutput: NSViewRepresentable {
             }
         }
     }
+
+    private final class IntentAwareScrollView: NSScrollView {
+        var userScrollPending = false
+        var onUserScrollIntent: (@MainActor @Sendable () -> Void)?
+
+        func notifyUserScrollIntent() {
+            userScrollPending = true
+            onUserScrollIntent?()
+        }
+
+        override func scrollWheel(with event: NSEvent) {
+            notifyUserScrollIntent()
+            super.scrollWheel(with: event)
+        }
+    }
+
 }
 
 extension TranslationPresentationPhase {

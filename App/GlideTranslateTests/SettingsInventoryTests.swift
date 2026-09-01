@@ -11,7 +11,7 @@ final class SettingsInventoryTests: XCTestCase {
         "selection.keyboard", "selection.debounce", "selection.limit",
         "selection.clipboardFallback",
         "models.ollama", "models.openAICompatible", "models.model",
-        "models.connectionTest", "models.timeouts", "models.confirmDestination",
+        "models.connect", "models.activateModel", "models.timeouts",
         "models.automaticApplications",
         "prompts.builtIns", "prompts.custom", "prompts.preview", "prompts.default",
         "privacyHistory.enabled", "privacyHistory.retention",

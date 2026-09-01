@@ -31,7 +31,7 @@ record_stage() {
 make_archive() {
   name="$1"
   version="$2"
-  build="${3:-2}"
+  build="${3:-3}"
   archive="$fixture_root/$name.xcarchive"
   app="$archive/Products/Applications/GlideTranslate.app"
   /bin/mkdir -p "$app/Contents/MacOS" \
@@ -197,7 +197,7 @@ make_packager() {
 contract_packager="$fixture_root/contract-packager"
 make_packager "$contract_packager" "$accepted_spctl" "$accepted_policy"
 
-accepted_archive="$(make_archive accepted 0.2.1 2)"
+accepted_archive="$(make_archive accepted 0.2.2 3)"
 accepted_output="$fixture_root/accepted-output"
 export GT_HDIUTIL_LOG="$fixture_root/hdiutil.log"
 export GT_HDIUTIL_MOUNTPOINT_FILE="$fixture_root/mountpoint"
@@ -212,7 +212,7 @@ if [ "$accepted_status" -ne 0 ]; then
 fi
 test "$(/bin/cat "$fixture_root/accepted.stdout")" = DMG_RELEASE_PACKAGE_PASSED
 test ! -s "$fixture_root/accepted.stderr"
-artifact_name=GlideTranslate-0.2.1-macos-arm64.dmg
+artifact_name=GlideTranslate-0.2.2-macos-arm64.dmg
 test -f "$accepted_output/$artifact_name"
 test "$(/usr/bin/find "$accepted_output" -type f | /usr/bin/wc -l | /usr/bin/tr -d ' ')" -eq 1
 test "$(/usr/bin/find "$accepted_output" -type l | /usr/bin/wc -l | /usr/bin/tr -d ' ')" -eq 0
@@ -227,17 +227,17 @@ record_stage EXISTING_OUTPUT
 assert_closed_failure existing RELEASE_OUTPUT_EXISTS \
   "$contract_packager" "$accepted_archive" "$existing_output"
 
-wrong_version="$(make_archive wrong-version 1.0 2)"
+wrong_version="$(make_archive wrong-version 1.0 3)"
 record_stage WRONG_VERSION
 assert_closed_failure wrong-version RELEASE_VERSION_MISMATCH \
   "$contract_packager" "$wrong_version" "$fixture_root/wrong-version-output"
 
-wrong_build="$(make_archive wrong-build 0.2.1 1)"
+wrong_build="$(make_archive wrong-build 0.2.2 2)"
 record_stage WRONG_BUILD
 assert_closed_failure wrong-build RELEASE_BUILD_MISMATCH \
   "$contract_packager" "$wrong_build" "$fixture_root/wrong-build-output"
 
-wrong_architecture="$(make_archive wrong-architecture 0.2.1 2)"
+wrong_architecture="$(make_archive wrong-architecture 0.2.2 3)"
 /usr/bin/clang -arch x86_64 -x c \
   -o "$wrong_architecture/Products/Applications/GlideTranslate.app/Contents/MacOS/GlideTranslate" - <<'EOF'
 int main(void) { return 0; }

@@ -133,6 +133,7 @@ final class PresetValidationTests: XCTestCase {
         let preview = try service.previewCustom(.fixture())
 
         XCTAssertEqual(compiler.selectedTexts, [PresetPreview.bundledSample])
+        XCTAssertEqual(preview.userContentTemplate, "{text}")
         XCTAssertEqual(preview.sampleUserContent, PresetPreview.bundledSample)
     }
 

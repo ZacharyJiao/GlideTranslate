@@ -6,6 +6,86 @@ import XCTest
 
 @MainActor
 final class ManualInputTests: XCTestCase {
+    func testManualInputStacksControlsAtTheDefaultWindowWidth() {
+        XCTAssertEqual(
+            ManualInputLayout.presentation(availableWidth: 620),
+            .stacked
+        )
+        XCTAssertEqual(
+            ManualInputLayout.presentation(availableWidth: 900),
+            .wide
+        )
+    }
+
+    func testOrdinaryManualSessionsResetToCurrentDefaultWithoutFallback() {
+        let defaultID = ProviderConfigurationID()
+        let overrideID = ProviderConfigurationID()
+        let options = [
+            ManualProviderOption(
+                id: defaultID.rawValue.uuidString,
+                configurationID: defaultID,
+                label: "Default",
+                model: "default-model",
+                locality: .localOnDevice,
+                isDefault: true
+            ),
+            ManualProviderOption(
+                id: overrideID.rawValue.uuidString,
+                configurationID: overrideID,
+                label: "Override",
+                model: "override-model",
+                locality: .localNetwork
+            ),
+        ]
+        let model = makeModel(text: "manual", providerOptions: options) { _ in }
+
+        model.prepareForOrdinarySession(defaultProviderID: defaultID)
+        XCTAssertEqual(model.selectedProviderID, options[0].id)
+        model.selectedProviderID = options[1].id
+
+        model.replaceOptions(
+            source: model.sourceOptions,
+            target: model.targetOptions,
+            presets: model.presetOptions,
+            providers: options,
+            preferredSource: model.selectedSourceLanguage,
+            preferredTarget: model.selectedTargetLanguage,
+            preferredPresetID: model.selectedPresetID,
+            preferredProviderID: overrideID
+        )
+        XCTAssertEqual(model.selectedProviderID, options[1].id)
+
+        model.prepareForOrdinarySession(defaultProviderID: defaultID)
+        XCTAssertEqual(model.selectedProviderID, options[0].id)
+
+        model.prepareForOrdinarySession(defaultProviderID: ProviderConfigurationID())
+        XCTAssertNil(model.selectedProviderID)
+        model.prepareForOrdinarySession(defaultProviderID: nil)
+        XCTAssertNil(model.selectedProviderID)
+    }
+
+    func testManualProviderOptionExposesModelReadinessCredentialAndDefaultRoute() {
+        let providerID = ProviderConfigurationID()
+        let option = ManualProviderOption(
+            id: providerID.rawValue.uuidString,
+            configurationID: providerID,
+            label: "OpenAI-compatible",
+            model: "k3",
+            locality: .unresolvedOrChanged,
+            hasCredential: true,
+            isDefault: true
+        )
+        let model = makeModel(text: "manual", providerOptions: [option]) { _ in }
+
+        XCTAssertEqual(model.selectedProvider?.model, "k3")
+        XCTAssertEqual(
+            model.selectedProvider?.readiness,
+            .destinationConfirmationRequired
+        )
+        XCTAssertTrue(model.selectedProvider?.hasCredential == true)
+        XCTAssertTrue(model.selectedProvider?.isDefault == true)
+    }
+
     func testManualSubmitRequiresTrimmedTextAndSelections() async {
         let rows: [(String, Bool)] = [
             ("", false),
@@ -192,6 +272,7 @@ final class ManualInputTests: XCTestCase {
 
     private func makeModel(
         text: String,
+        providerOptions: [ManualProviderOption]? = nil,
         submit: @escaping @MainActor @Sendable (ManualTranslationDraft) async -> Void
     ) -> ManualInputViewModel {
         ManualInputViewModel(
@@ -208,7 +289,7 @@ final class ManualInputTests: XCTestCase {
                     labelKey: "preset.accurate.name"
                 ),
             ],
-            providerOptions: [
+            providerOptions: providerOptions ?? [
                 ManualProviderOption(
                     id: "default",
                     configurationID: nil,
